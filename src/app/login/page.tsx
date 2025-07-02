@@ -1,3 +1,4 @@
+
 "use client"
 
 import { AuthForm } from '@/components/auth/auth-form'
@@ -7,14 +8,16 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { UserCheck } from 'lucide-react'
+import { useTranslation } from '@/hooks/use-translation'
 
 export default function LoginPage() {
   const { user, loading } = useAuth()
+  const { t } = useTranslation()
 
   if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
-        Loading...
+        {t("Loading...")}
       </div>
     )
   }
@@ -28,17 +31,17 @@ export default function LoginPage() {
              <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
                <UserCheck className="h-10 w-10 text-primary" />
              </div>
-             <CardTitle className="font-headline text-2xl">You're Already Logged In</CardTitle>
+             <CardTitle className="font-headline text-2xl">{t("You're Already Logged In")}</CardTitle>
              <CardDescription>
-               Welcome back, {user.displayName || 'user'}! Please select your dashboard.
+               {t("Welcome back, {{name}}! Please select your dashboard.", { name: user.displayName || 'user' })}
              </CardDescription>
            </CardHeader>
            <CardContent className="flex flex-col gap-4">
              <Button asChild size="lg">
-               <Link href="/dashboard/teacher">Teacher Dashboard</Link>
+               <Link href="/dashboard/teacher">{t("Teacher Dashboard")}</Link>
              </Button>
              <Button asChild variant="secondary" size="lg">
-               <Link href="/dashboard/student">Student Dashboard</Link>
+               <Link href="/dashboard/student">{t("Student Dashboard")}</Link>
              </Button>
            </CardContent>
          </Card>
@@ -54,8 +57,8 @@ export default function LoginPage() {
           <Link href="/" className="mb-4" aria-label="Back to home">
             <Logo className="h-14 w-14 text-primary" />
           </Link>
-          <h1 className="text-3xl font-bold font-headline text-foreground">Welcome to Sahayak</h1>
-          <p className="text-muted-foreground">Login or create an account to continue.</p>
+          <h1 className="text-3xl font-bold font-headline text-foreground">{t("Welcome to Sahayak")}</h1>
+          <p className="text-muted-foreground">{t("Login or create an account to continue.")}</p>
         </div>
         <AuthForm />
       </div>

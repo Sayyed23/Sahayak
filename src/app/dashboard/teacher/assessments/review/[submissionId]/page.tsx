@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Download, Ear, Gauge, Play, Send } from "lucide-react"
 import Link from "next/link"
 import { marked } from "marked"
+import { useTranslation } from "@/hooks/use-translation"
 
 // Mock data that would come from the analyzeReadingAssessment AI flow
 const mockReport = {
@@ -33,19 +34,20 @@ renderer.em = (text) => `<em class="bg-green-500/20 text-green-700 rounded-sm px
 
 
 export default function ReviewAssessmentPage({ params }: { params: { submissionId: string } }) {
+  const { t } = useTranslation()
   const report = mockReport;
 
   return (
     <div className="space-y-6">
       <Link href="/dashboard/teacher/assessments" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Assessments
+        {t("Back to Assessments")}
       </Link>
 
       <div>
-        <h1 className="text-3xl font-bold font-headline">{report.studentName} - Reading Report</h1>
+        <h1 className="text-3xl font-bold font-headline">{report.studentName} - {t("Reading Report")}</h1>
         <p className="text-muted-foreground">
-          Assessed on: <span className="font-medium">{report.passageTitle}</span> | Submitted: {report.dateSubmitted}
+          {t("Assessed on")}: <span className="font-medium">{report.passageTitle}</span> | {t("Submitted")}: {report.dateSubmitted}
         </p>
       </div>
 
@@ -53,8 +55,8 @@ export default function ReviewAssessmentPage({ params }: { params: { submissionI
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Passage with AI-Detected Errors</CardTitle>
-              <CardDescription>Listen to the audio and see where the student struggled.</CardDescription>
+              <CardTitle>{t("Passage with AI-Detected Errors")}</CardTitle>
+              <CardDescription>{t("Listen to the audio and see where the student struggled.")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -75,14 +77,14 @@ export default function ReviewAssessmentPage({ params }: { params: { submissionI
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Provide Feedback</CardTitle>
-              <CardDescription>Write a short note for the student to help them improve.</CardDescription>
+              <CardTitle>{t("Provide Feedback")}</CardTitle>
+              <CardDescription>{t("Write a short note for the student to help them improve.")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea placeholder="Great job, Aarav! Try to focus on the 'a' sound in words like 'ant'. Keep practicing!" rows={4} />
+              <Textarea placeholder={t("Great job, Aarav! Try to focus on the 'a' sound in words like 'ant'. Keep practicing!")} rows={4} />
               <Button>
                 <Send className="mr-2 h-4 w-4" />
-                Submit Feedback
+                {t("Submit Feedback")}
               </Button>
             </CardContent>
           </Card>
@@ -90,20 +92,20 @@ export default function ReviewAssessmentPage({ params }: { params: { submissionI
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Performance Summary</CardTitle>
+              <CardTitle>{t("Performance Summary")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-3 rounded-md bg-accent">
                 <div className="flex items-center gap-3">
                   <Gauge className="text-primary h-6 w-6" />
-                  <span className="font-medium">Fluency (WPM)</span>
+                  <span className="font-medium">{t("Fluency (WPM)")}</span>
                 </div>
                 <span className="text-2xl font-bold">{report.fluencyWPM}</span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-md bg-accent">
                 <div className="flex items-center gap-3">
                   <Ear className="text-primary h-6 w-6" />
-                  <span className="font-medium">Accuracy</span>
+                  <span className="font-medium">{t("Accuracy")}</span>
                 </div>
                 <span className="text-2xl font-bold">{report.accuracyPercentage}%</span>
               </div>
@@ -111,21 +113,21 @@ export default function ReviewAssessmentPage({ params }: { params: { submissionI
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Error Details</CardTitle>
+              <CardTitle>{t("Error Details")}</CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-sm">
                 {report.errors.map((error, index) => (
                   <li key={index} className="flex items-center justify-between">
                     <span>{error.word}</span>
-                    <Badge variant={error.errorType === 'omission' ? 'destructive' : 'secondary'}>{error.errorType}</Badge>
+                    <Badge variant={error.errorType === 'omission' ? 'destructive' : 'secondary'}>{t(error.errorType)}</Badge>
                   </li>
                 ))}
               </ul>
             </CardContent>
           </Card>
            <Button variant="outline" className="w-full">
-            <Download className="mr-2 h-4 w-4" /> Download Report
+            <Download className="mr-2 h-4 w-4" /> {t("Download Report")}
           </Button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { Button } from "@/components/ui/button"
@@ -16,14 +17,15 @@ import { designVisualAid } from "@/ai/flows/design-visual-aid"
 import { extractTextFromImage, generateWorksheet } from "@/ai/flows/generate-worksheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { marked } from "marked"
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function CreateContentPage() {
   const { toast } = useToast()
+  const { t, language } = useTranslation()
 
   // State for Hyper-Local Content
   const [contentText, setContentText] = useState("")
   const [contentType, setContentType] = useState("")
-  const [outputLanguage, setOutputLanguage] = useState("")
   const [generatedContent, setGeneratedContent] = useState("")
   const [isGeneratingContent, setIsGeneratingContent] = useState(false)
 
@@ -43,10 +45,10 @@ export default function CreateContentPage() {
   const [isGeneratingWorksheet, setIsGeneratingWorksheet] = useState(false)
 
   const handleGenerateContent = async () => {
-    if (!contentText || !contentType || !outputLanguage) {
+    if (!contentText || !contentType) {
       toast({
-        title: "Missing Information",
-        description: "Please fill out all fields to generate content.",
+        title: t("Missing Information"),
+        description: t("Please fill out all fields to generate content."),
         variant: "destructive",
       })
       return
@@ -57,14 +59,14 @@ export default function CreateContentPage() {
       const result = await generateHyperLocalContent({
         text: contentText,
         contentType: contentType,
-        outputLanguage: outputLanguage,
+        outputLanguage: language,
       })
       setGeneratedContent(result.generatedContent)
     } catch (error) {
       console.error(error)
       toast({
-        title: "Error Generating Content",
-        description: "Something went wrong. Please try again. You may need to add your Gemini API key.",
+        title: t("Error Generating Content"),
+        description: t("Something went wrong. Please try again. You may need to add your Gemini API key."),
         variant: "destructive",
       })
     } finally {
@@ -75,8 +77,8 @@ export default function CreateContentPage() {
   const handleGenerateVisual = async () => {
      if (!visualDescription) {
       toast({
-        title: "Missing Description",
-        description: "Please provide a description for the visual aid.",
+        title: t("Missing Description"),
+        description: t("Please provide a description for the visual aid."),
         variant: "destructive",
       })
       return
@@ -91,8 +93,8 @@ export default function CreateContentPage() {
     } catch (error) {
       console.error(error)
       toast({
-        title: "Error Generating Visual",
-        description: "Something went wrong. Please try again. You may need to add your Gemini API key.",
+        title: t("Error Generating Visual"),
+        description: t("Something went wrong. Please try again. You may need to add your Gemini API key."),
         variant: "destructive",
       })
       setGeneratedImageUrl("https://placehold.co/600x400.png")
@@ -117,8 +119,8 @@ export default function CreateContentPage() {
         } catch (error) {
           console.error(error);
           toast({
-            title: "Error Extracting Text",
-            description: "Could not read text from the image. Please try another image.",
+            title: t("Error Extracting Text"),
+            description: t("Could not read text from the image. Please try another image."),
             variant: "destructive",
           });
           setTextbookImageDataUri(null);
@@ -133,8 +135,8 @@ export default function CreateContentPage() {
   const handleGenerateWorksheet = async () => {
     if (!extractedText || !gradeLevel || !worksheetType) {
         toast({
-            title: "Missing Information",
-            description: "Please ensure text is extracted and you've selected a grade and worksheet type.",
+            title: t("Missing Information"),
+            description: t("Please ensure text is extracted and you've selected a grade and worksheet type."),
             variant: "destructive",
         });
         return;
@@ -151,8 +153,8 @@ export default function CreateContentPage() {
     } catch (error) {
         console.error(error);
         toast({
-            title: "Error Generating Worksheet",
-            description: "Something went wrong. Please try again.",
+            title: t("Error Generating Worksheet"),
+            description: t("Something went wrong. Please try again."),
             variant: "destructive",
         });
     } finally {
@@ -164,29 +166,29 @@ export default function CreateContentPage() {
   return (
     <div className="space-y-6">
        <div>
-        <h1 className="text-3xl font-bold font-headline">Create Content</h1>
-        <p className="text-muted-foreground">Your creative toolkit for the classroom.</p>
+        <h1 className="text-3xl font-bold font-headline">{t("Create Content")}</h1>
+        <p className="text-muted-foreground">{t("Your creative toolkit for the classroom.")}</p>
       </div>
       <Tabs defaultValue="hyper-local" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="hyper-local">Hyper-Local Content</TabsTrigger>
-          <TabsTrigger value="differentiated">Differentiated Materials</TabsTrigger>
-          <TabsTrigger value="visual-aid">Visual Aid Designer</TabsTrigger>
+          <TabsTrigger value="hyper-local">{t("Hyper-Local Content")}</TabsTrigger>
+          <TabsTrigger value="differentiated">{t("Differentiated Materials")}</TabsTrigger>
+          <TabsTrigger value="visual-aid">{t("Visual Aid Designer")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="hyper-local">
           <Card>
             <CardHeader>
-              <CardTitle>Hyper-Local Content Generator</CardTitle>
-              <CardDescription>Generate stories and explanations tailored to your students' context.</CardDescription>
+              <CardTitle>{t("Hyper-Local Content Generator")}</CardTitle>
+              <CardDescription>{t("Generate stories and explanations tailored to your students' context.")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="content-text">Input Text</Label>
+                <Label htmlFor="content-text">{t("Input Text")}</Label>
                 <div className="relative">
                   <Textarea 
                     id="content-text" 
-                    placeholder="e.g., A story about a monkey in a mango grove near our village..." 
+                    placeholder={t("e.g., A story about a monkey in a mango grove near our village...")}
                     className="pr-10" 
                     rows={5}
                     value={contentText}
@@ -197,48 +199,36 @@ export default function CreateContentPage() {
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="content-type">Content Type</Label>
+                  <Label htmlFor="content-type">{t("Content Type")}</Label>
                   <Select onValueChange={setContentType} value={contentType}>
                     <SelectTrigger id="content-type">
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder={t("Select type")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="story">Story</SelectItem>
-                      <SelectItem value="explanation">Explanation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="output-language">Output Language</Label>
-                  <Select onValueChange={setOutputLanguage} value={outputLanguage}>
-                    <SelectTrigger id="output-language">
-                      <SelectValue placeholder="Select language" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="english">English</SelectItem>
-                      <SelectItem value="hindi">Hindi</SelectItem>
+                      <SelectItem value="story">{t("Story")}</SelectItem>
+                      <SelectItem value="explanation">{t("Explanation")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <Button className="w-full" onClick={handleGenerateContent} disabled={isGeneratingContent}>
                 {isGeneratingContent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                {isGeneratingContent ? "Generating..." : "Generate Content"}
+                {isGeneratingContent ? t("Generating...") : t("Generate Content")}
               </Button>
             </CardContent>
             <CardFooter className="flex flex-col items-start space-y-4">
-              <Label>Generated Output</Label>
+              <Label>{t("Generated Output")}</Label>
               <div className="w-full p-4 border rounded-md bg-muted/50 min-h-[150px]">
                 {isGeneratingContent && <Skeleton className="h-20 w-full" />}
-                {!isGeneratingContent && !generatedContent && <p className="text-sm text-muted-foreground">Your generated content will appear here...</p>}
+                {!isGeneratingContent && !generatedContent && <p className="text-sm text-muted-foreground">{t("Your generated content will appear here...")}</p>}
                 {generatedContent && <p className="text-sm whitespace-pre-wrap">{generatedContent}</p>}
               </div>
               <div className="flex gap-2">
-                  <Button variant="outline" disabled={!generatedContent}><Save className="mr-2 h-4 w-4" /> Save</Button>
-                  <Button variant="outline" disabled={!generatedContent}><Printer className="mr-2 h-4 w-4" /> Print</Button>
-                  <Button variant="outline" disabled={!generatedContent}><FileAudio className="mr-2 h-4 w-4" /> Convert to Audio</Button>
+                  <Button variant="outline" disabled={!generatedContent}><Save className="mr-2 h-4 w-4" /> {t("Save")}</Button>
+                  <Button variant="outline" disabled={!generatedContent}><Printer className="mr-2 h-4 w-4" /> {t("Print")}</Button>
+                  <Button variant="outline" disabled={!generatedContent}><FileAudio className="mr-2 h-4 w-4" /> {t("Convert to Audio")}</Button>
               </div>
             </CardFooter>
           </Card>
@@ -247,15 +237,15 @@ export default function CreateContentPage() {
         <TabsContent value="differentiated">
             <Card>
                 <CardHeader>
-                    <CardTitle>Differentiated Materials Creator</CardTitle>
-                    <CardDescription>Upload a textbook page to create worksheets for different grade levels.</CardDescription>
+                    <CardTitle>{t("Differentiated Materials Creator")}</CardTitle>
+                    <CardDescription>{t("Upload a textbook page to create worksheets for different grade levels.")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                        <Label>Upload Textbook Image</Label>
+                        <Label>{t("Upload Textbook Image")}</Label>
                         {textbookImageDataUri ? (
                             <div className="relative">
-                                <Image src={textbookImageDataUri} width={600} height={400} alt="Textbook page preview" className="w-full h-auto rounded-md border" />
+                                <Image src={textbookImageDataUri} width={600} height={400} alt={t("Textbook page preview")} className="w-full h-auto rounded-md border" />
                                 <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => {
                                     setTextbookImageDataUri(null)
                                     setExtractedText("")
@@ -269,8 +259,8 @@ export default function CreateContentPage() {
                                 <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-accent hover:bg-muted">
                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                         <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
-                                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                        <p className="text-xs text-muted-foreground">PNG, JPG (MAX. 5MB)</p>
+                                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">{t("Click to upload")}</span> {t("or drag and drop")}</p>
+                                        <p className="text-xs text-muted-foreground">{t("PNG, JPG (MAX. 5MB)")}</p>
                                     </div>
                                     <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileChange} accept="image/png, image/jpeg" />
                                 </label>
@@ -278,13 +268,13 @@ export default function CreateContentPage() {
                         )}
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="extracted-text">Extracted Text (Editable)</Label>
+                        <Label htmlFor="extracted-text">{t("Extracted Text (Editable)")}</Label>
                         {isExtractingText ? (
                             <Skeleton className="h-32 w-full" />
                         ) : (
                             <Textarea 
                                 id="extracted-text" 
-                                placeholder="Text from your image will appear here..." 
+                                placeholder={t("Text from your image will appear here...")}
                                 rows={8}
                                 value={extractedText}
                                 onChange={(e) => setExtractedText(e.target.value)}
@@ -294,47 +284,47 @@ export default function CreateContentPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="grade-level">Grade Level</Label>
+                        <Label htmlFor="grade-level">{t("Grade Level")}</Label>
                         <Select onValueChange={setGradeLevel} value={gradeLevel} disabled={isExtractingText || isGeneratingWorksheet}>
-                          <SelectTrigger id="grade-level"><SelectValue placeholder="Select grade" /></SelectTrigger>
+                          <SelectTrigger id="grade-level"><SelectValue placeholder={t("Select grade")} /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1-2">Grade 1-2</SelectItem>
-                            <SelectItem value="3-4">Grade 3-4</SelectItem>
-                            <SelectItem value="5">Grade 5</SelectItem>
+                            <SelectItem value="1-2">{t("Grade 1-2")}</SelectItem>
+                            <SelectItem value="3-4">{t("Grade 3-4")}</SelectItem>
+                            <SelectItem value="5">{t("Grade 5")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="worksheet-type">Worksheet Type</Label>
+                        <Label htmlFor="worksheet-type">{t("Worksheet Type")}</Label>
                         <Select onValueChange={(v) => setWorksheetType(v as any)} value={worksheetType} disabled={isExtractingText || isGeneratingWorksheet}>
-                          <SelectTrigger id="worksheet-type"><SelectValue placeholder="Select type" /></SelectTrigger>
+                          <SelectTrigger id="worksheet-type"><SelectValue placeholder={t("Select type")} /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="mcq">Multiple Choice</SelectItem>
-                            <SelectItem value="fill-blanks">Fill in the Blanks</SelectItem>
-                            <SelectItem value="short-answer">Short Answer</SelectItem>
+                            <SelectItem value="mcq">{t("Multiple Choice")}</SelectItem>
+                            <SelectItem value="fill-blanks">{t("Fill in the Blanks")}</SelectItem>
+                            <SelectItem value="short-answer">{t("Short Answer")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
                     <Button className="w-full" onClick={handleGenerateWorksheet} disabled={isExtractingText || isGeneratingWorksheet || !extractedText}>
                         {isGeneratingWorksheet ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                        {isGeneratingWorksheet ? "Generating Worksheet..." : "Generate Worksheet"}
+                        {isGeneratingWorksheet ? t("Generating Worksheet...") : t("Generate Worksheet")}
                     </Button>
                 </CardContent>
                 <CardFooter className="flex flex-col items-start space-y-4">
-                    <Label>Generated Worksheet</Label>
+                    <Label>{t("Generated Worksheet")}</Label>
                     <div className="w-full p-4 border rounded-md bg-muted/50 min-h-[150px] prose prose-sm max-w-none">
                         {isGeneratingWorksheet && <Skeleton className="h-24 w-full" />}
                         {!isGeneratingWorksheet && !generatedWorksheet && (
-                            <p className="text-sm text-muted-foreground not-prose">Generated worksheet will appear here...</p>
+                            <p className="text-sm text-muted-foreground not-prose">{t("Generated worksheet will appear here...")}</p>
                         )}
                         {generatedWorksheet && (
                           <div dangerouslySetInnerHTML={{ __html: marked(generatedWorksheet) as string }} />
                         )}
                     </div>
                      <div className="flex gap-2">
-                        <Button variant="outline" disabled={!generatedWorksheet || isGeneratingWorksheet}><Download className="mr-2 h-4 w-4" /> Download (PDF)</Button>
-                        <Button variant="outline" disabled={!generatedWorksheet || isGeneratingWorksheet}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+                        <Button variant="outline" disabled={!generatedWorksheet || isGeneratingWorksheet}><Download className="mr-2 h-4 w-4" /> {t("Download (PDF)")}</Button>
+                        <Button variant="outline" disabled={!generatedWorksheet || isGeneratingWorksheet}><Printer className="mr-2 h-4 w-4" /> {t("Print")}</Button>
                     </div>
                 </CardFooter>
             </Card>
@@ -343,47 +333,47 @@ export default function CreateContentPage() {
         <TabsContent value="visual-aid">
             <Card>
                 <CardHeader>
-                    <CardTitle>Visual Aid Designer</CardTitle>
-                    <CardDescription>Create drawings, charts, and diagrams from a simple text description.</CardDescription>
+                    <CardTitle>{t("Visual Aid Designer")}</CardTitle>
+                    <CardDescription>{t("Create drawings, charts, and diagrams from a simple text description.")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="visual-description">Description</Label>
+                        <Label htmlFor="visual-description">{t("Description")}</Label>
                         <Textarea 
                             id="visual-description" 
-                            placeholder="e.g., A simple diagram of the water cycle with labels for evaporation, condensation, and precipitation." 
+                            placeholder={t("e.g., A simple diagram of the water cycle with labels for evaporation, condensation, and precipitation.")}
                             rows={3}
                             value={visualDescription}
                             onChange={(e) => setVisualDescription(e.target.value)}
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="visual-style">Style</Label>
+                        <Label htmlFor="visual-style">{t("Style")}</Label>
                         <Select onValueChange={(v) => setVisualStyle(v as any)} value={visualStyle}>
-                            <SelectTrigger id="visual-style"><SelectValue placeholder="Select style" /></SelectTrigger>
+                            <SelectTrigger id="visual-style"><SelectValue placeholder={t("Select style")} /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="hand-drawn">Hand-drawn</SelectItem>
-                                <SelectItem value="professional">Professional</SelectItem>
-                                <SelectItem value="chalkboard">Chalkboard</SelectItem>
+                                <SelectItem value="hand-drawn">{t("Hand-drawn")}</SelectItem>
+                                <SelectItem value="professional">{t("Professional")}</SelectItem>
+                                <SelectItem value="chalkboard">{t("Chalkboard")}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <Button className="w-full" onClick={handleGenerateVisual} disabled={isGeneratingVisual}>
                       {isGeneratingVisual ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
-                      {isGeneratingVisual ? "Generating..." : "Generate Visual"}
+                      {isGeneratingVisual ? t("Generating...") : t("Generate Visual")}
                     </Button>
                 </CardContent>
                 <CardFooter className="flex flex-col items-start space-y-4">
-                    <Label>Generated Visual</Label>
+                    <Label>{t("Generated Visual")}</Label>
                     <div className="w-full p-4 border rounded-md bg-muted/50 aspect-video flex items-center justify-center">
                         {isGeneratingVisual ? <Skeleton className="h-full w-full" /> : 
-                            <Image src={generatedImageUrl} alt="Generated visual aid" width={600} height={400} className="rounded-md" data-ai-hint="water cycle diagram" />
+                            <Image src={generatedImageUrl} alt={t("Generated visual aid")} width={600} height={400} className="rounded-md" data-ai-hint="water cycle diagram" />
                         }
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><Download className="mr-2 h-4 w-4" /> Download Image</Button>
-                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><Save className="mr-2 h-4 w-4" /> Save</Button>
-                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><RefreshCw className="mr-2 h-4 w-4" /> Generate Variations</Button>
+                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><Download className="mr-2 h-4 w-4" /> {t("Download Image")}</Button>
+                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><Save className="mr-2 h-4 w-4" /> {t("Save")}</Button>
+                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><RefreshCw className="mr-2 h-4 w-4" /> {t("Generate Variations")}</Button>
                     </div>
                 </CardFooter>
             </Card>

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Mic, Square, Play, Undo2, Loader2, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { useTranslation } from '@/hooks/use-translation'
 
 const mockPassage = {
   id: "assessment1",
@@ -19,6 +20,7 @@ const mockPassage = {
 export default function TakeAssessmentPage({ params }: { params: { assessmentId: string } }) {
   const router = useRouter()
   const { toast } = useToast()
+  const { t } = useTranslation()
   
   const [isRecording, setIsRecording] = useState(false)
   const [audioURL, setAudioURL] = useState<string | null>(null)
@@ -49,12 +51,12 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
         console.error("Error accessing microphone:", err)
         setHasPermission(false)
         toast({
-          title: "Microphone Access Denied",
-          description: "Please allow microphone access in your browser settings to record.",
+          title: t("Microphone Access Denied"),
+          description: t("Please allow microphone access in your browser settings to record."),
           variant: "destructive"
         })
       })
-  }, [toast])
+  }, [toast, t])
 
   const startRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "inactive") {
@@ -81,16 +83,16 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
     // In a real app, you would upload the audio blob to a server
     // and call the analyzeReadingAssessment AI flow.
     toast({
-      title: "Submitting...",
-      description: "Analyzing your reading performance."
+      title: t("Submitting..."),
+      description: t("Analyzing your reading performance.")
     })
     
     // Simulate network delay and AI processing
     setTimeout(() => {
       setIsSubmitting(false)
       toast({
-        title: "Assessment Submitted!",
-        description: "Your teacher will review your submission soon."
+        title: t("Assessment Submitted!"),
+        description: t("Your teacher will review your submission soon.")
       })
       router.push('/dashboard/student')
     }, 3000)
@@ -101,18 +103,18 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
         <div className="flex h-screen items-center justify-center">
             <Card className="max-w-lg">
                 <CardHeader>
-                    <CardTitle>Microphone Access Required</CardTitle>
+                    <CardTitle>{t("Microphone Access Required")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Alert variant="destructive">
                         <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Permission Denied</AlertTitle>
+                        <AlertTitle>{t("Permission Denied")}</AlertTitle>
                         <AlertDescription>
-                            Sahayak needs access to your microphone to record your reading. Please enable it in your browser settings and refresh the page.
+                            {t("Sahayak needs access to your microphone to record your reading. Please enable it in your browser settings and refresh the page.")}
                         </AlertDescription>
                     </Alert>
                     <Button asChild className="mt-4 w-full">
-                        <Link href="/dashboard/student">Back to Dashboard</Link>
+                        <Link href="/dashboard/student">{t("Back to Dashboard")}</Link>
                     </Button>
                 </CardContent>
             </Card>
@@ -121,15 +123,15 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
   }
   
   if (hasPermission === null) {
-     return <div className="flex h-screen items-center justify-center">Requesting microphone access...</div>
+     return <div className="flex h-screen items-center justify-center">{t("Requesting microphone access...")}</div>
   }
 
   return (
     <div className="flex flex-col items-center p-4 md:p-8">
       <Card className="w-full max-w-3xl">
         <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl">Read Aloud: {mockPassage.title}</CardTitle>
-          <CardDescription>Read the passage below clearly. Tap the microphone when you are ready to start.</CardDescription>
+          <CardTitle className="font-headline text-3xl">{t("Read Aloud: {{title}}", { title: mockPassage.title })}</CardTitle>
+          <CardDescription>{t("Read the passage below clearly. Tap the microphone when you are ready to start.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="p-6 border rounded-lg bg-muted/50 text-lg leading-relaxed">
@@ -147,20 +149,20 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
                 {isRecording ? <Square className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
               </Button>
             )}
-            <p className="text-muted-foreground">{isRecording ? "Recording... Tap to stop." : "Tap the mic to start recording"}</p>
+            <p className="text-muted-foreground">{isRecording ? t("Recording... Tap to stop.") : t("Tap the mic to start recording")}</p>
             
             {audioURL && (
               <div className="w-full space-y-4">
-                <h3 className="text-center font-semibold">Your Recording</h3>
+                <h3 className="text-center font-semibold">{t("Your Recording")}</h3>
                 <audio src={audioURL} controls className="w-full" />
                 <div className="flex justify-center gap-4">
                   <Button variant="outline" onClick={handleRetake} disabled={isSubmitting}>
                     <Undo2 className="mr-2 h-4 w-4" />
-                    Retake
+                    {t("Retake")}
                   </Button>
                   <Button onClick={handleSubmit} disabled={isSubmitting}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Submit
+                    {t("Submit")}
                   </Button>
                 </div>
               </div>

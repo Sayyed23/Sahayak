@@ -1,3 +1,4 @@
+
 'use client'
 
 import {
@@ -40,6 +41,7 @@ import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Terminal } from 'lucide-react'
+import { useTranslation } from '@/hooks/use-translation'
 
 export default function StudentLayout({
   children,
@@ -49,6 +51,7 @@ export default function StudentLayout({
   const pathname = usePathname()
   const router = useRouter()
   const { user, loading, firebaseInitialized } = useAuth()
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (!loading && !user && firebaseInitialized) {
@@ -82,17 +85,17 @@ export default function StudentLayout({
   if (loading || !user) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
-        Loading...
+        {t("Loading...")}
       </div>
     )
   }
 
   const navItems = [
-    { href: '/dashboard/student', icon: Home, label: 'Home' },
-    { href: '/dashboard/student/my-lessons', icon: BookOpen, label: 'My Lessons' },
-    { href: '/dashboard/student/ask-a-question', icon: HelpCircle, label: 'Ask a Question' },
-    { href: '/dashboard/student/feedback', icon: MessageSquare, label: 'Feedback' },
-    { href: '/dashboard/student/profile', icon: User, label: 'Profile' },
+    { href: '/dashboard/student', icon: Home, label: t('Home') },
+    { href: '/dashboard/student/my-lessons', icon: BookOpen, label: t('My Lessons') },
+    { href: '/dashboard/student/ask-a-question', icon: HelpCircle, label: t('Ask a Question') },
+    { href: '/dashboard/student/feedback', icon: MessageSquare, label: t('Feedback') },
+    { href: '/dashboard/student/profile', icon: User, label: t('Profile') },
   ]
 
   return (
@@ -128,22 +131,22 @@ export default function StudentLayout({
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="w-full justify-start gap-2 p-2 h-auto">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src="https://placehold.co/100x100.png" alt={user.displayName || "Student"} data-ai-hint="student portrait" />
+                        <AvatarImage src="https://placehold.co/100x100.png" alt={user.displayName || t("Student")} data-ai-hint="student portrait" />
                         <AvatarFallback>{user.displayName?.charAt(0).toUpperCase() || 'S'}</AvatarFallback>
                     </Avatar>
                     <div className="text-left group-data-[collapsible=icon]:hidden">
-                        <p className="font-semibold text-sm">{user.displayName || "Student"}</p>
+                        <p className="font-semibold text-sm">{user.displayName || t("Student")}</p>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="start">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('My Account')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem><User className="mr-2 h-4 w-4" /><span>Profile</span></DropdownMenuItem>
-                <DropdownMenuItem><HelpCircle className="mr-2 h-4 w-4" /><span>Help</span></DropdownMenuItem>
+                <DropdownMenuItem><User className="mr-2 h-4 w-4" /><span>{t("Profile")}</span></DropdownMenuItem>
+                <DropdownMenuItem><HelpCircle className="mr-2 h-4 w-4" /><span>{t("Help")}</span></DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" /><span>Log out</span></DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" /><span>{t("Log out")}</span></DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarFooter>

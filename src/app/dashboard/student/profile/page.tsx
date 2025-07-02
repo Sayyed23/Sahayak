@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Button } from "@/components/ui/button"
@@ -6,47 +7,49 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/hooks/use-auth"
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function ProfilePage() {
   const { user } = useAuth()
+  const { t, language, setLanguage } = useTranslation()
 
   if (!user) {
-    return <div>Loading profile...</div>
+    return <div>{t("Loading profile...")}</div>
   }
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">My Profile</h1>
-        <p className="text-muted-foreground">Manage your personal information.</p>
+        <h1 className="text-3xl font-bold font-headline">{t("My Profile")}</h1>
+        <p className="text-muted-foreground">{t("Manage your personal information.")}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Profile Details</CardTitle>
-          <CardDescription>Update your personal information.</CardDescription>
+          <CardTitle>{t("Profile Details")}</CardTitle>
+          <CardDescription>{t("Update your personal information.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{t("Name")}</Label>
               <Input id="name" defaultValue={user.displayName || ""} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("Email")}</Label>
               <Input id="email" type="email" defaultValue={user.email || ""} disabled />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="school">School</Label>
+              <Label htmlFor="school">{t("School")}</Label>
               <Input id="school" defaultValue="Govt. Model School" />
             </div>
              <div className="space-y-2">
-              <Label htmlFor="grade">Grade</Label>
+              <Label htmlFor="grade">{t("Grade")}</Label>
               <Input id="grade" defaultValue="5th" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="language">Language Preference</Label>
-              <Select defaultValue="hindi">
+              <Label htmlFor="language">{t("Language Preference")}</Label>
+              <Select value={language} onValueChange={setLanguage}>
                 <SelectTrigger id="language"><SelectValue /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="english">English</SelectItem>
@@ -56,7 +59,7 @@ export default function ProfilePage() {
               </Select>
             </div>
           </div>
-          <Button>Save Changes</Button>
+          <Button>{t("Save Changes")}</Button>
         </CardContent>
       </Card>
     </div>

@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/hooks/use-auth"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useTranslation } from "@/hooks/use-translation"
 
 interface Student {
   id: string;
@@ -31,6 +32,7 @@ export default function AssessmentsPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [isLoadingStudents, setIsLoadingStudents] = useState(true)
   const { user } = useAuth()
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (!db || !user) return
@@ -63,27 +65,27 @@ export default function AssessmentsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Reading Assessments</h1>
-        <p className="text-muted-foreground">Assign and review student reading passages.</p>
+        <h1 className="text-3xl font-bold font-headline">{t("Reading Assessments")}</h1>
+        <p className="text-muted-foreground">{t("Assign and review student reading passages.")}</p>
       </div>
 
       <div className="flex flex-wrap gap-4">
         <Button asChild>
           <Link href="/dashboard/teacher/assessments/assign">
             <Plus className="mr-2 h-4 w-4" />
-            Assign New Reading Assessment
+            {t("Assign New Reading Assessment")}
           </Link>
         </Button>
         <Button variant="outline">
           <List className="mr-2 h-4 w-4" />
-          View All Assigned Passages
+          {t("View All Assigned Passages")}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Students Overview</CardTitle>
-          <CardDescription>Review the latest assessment status for each student.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> {t("Students Overview")}</CardTitle>
+          <CardDescription>{t("Review the latest assessment status for each student.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoadingStudents ? (
@@ -112,42 +114,42 @@ export default function AssessmentsPage() {
                   <div>
                     <p className="font-semibold">{student.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      Status: <Badge variant={student.status === 'Completed' ? 'default' : 'secondary'}>{student.status}</Badge>
+                      {t("Status")}: <Badge variant={student.status === 'Completed' ? 'default' : 'secondary'}>{t(student.status)}</Badge>
                       <span className="mx-2">|</span>
-                      Score: {student.score}
+                      {t("Score")}: {student.score}
                     </p>
                   </div>
                 </div>
                 <Button asChild variant="secondary" size="sm">
                   {/* This link is a placeholder for a real report page */}
-                  <Link href={`/dashboard/teacher/assessments/review/review1`}>View Reports <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                  <Link href={`/dashboard/teacher/assessments/review/review1`}>{t("View Reports")} <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>
               </div>
             ))
           ) : (
-             <p className="text-sm text-muted-foreground text-center p-4">No students have signed up yet. New students will appear here after using your code.</p>
+             <p className="text-sm text-muted-foreground text-center p-4">{t("No students have signed up yet. New students will appear here after using your code.")}</p>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Pending Reviews</CardTitle>
-          <CardDescription>These assessments are waiting for your feedback.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> {t("Pending Reviews")}</CardTitle>
+          <CardDescription>{t("These assessments are waiting for your feedback.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {pendingReviews.length > 0 ? pendingReviews.map(review => (
              <div key={review.id} className="flex flex-wrap items-center justify-between gap-4 p-3 rounded-lg hover:bg-accent">
                <div>
-                  <p className="font-semibold">{review.studentName} - "{review.passageTitle}"</p>
-                  <p className="text-sm text-muted-foreground">Submitted on {review.submissionDate}</p>
+                  <p className="font-semibold">{review.studentName} - "{t(review.passageTitle)}"</p>
+                  <p className="text-sm text-muted-foreground">{t("Submitted on {{date}}", { date: review.submissionDate})}</p>
                </div>
                 <Button asChild size="sm">
-                    <Link href={`/dashboard/teacher/assessments/review/${review.id}`}>Review</Link>
+                    <Link href={`/dashboard/teacher/assessments/review/${review.id}`}>{t("Review")}</Link>
                 </Button>
              </div>
           )) : (
-            <p className="text-sm text-muted-foreground text-center p-4">No pending reviews right now.</p>
+            <p className="text-sm text-muted-foreground text-center p-4">{t("No pending reviews right now.")}</p>
           )}
         </CardContent>
       </Card>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -15,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { Logo } from "@/components/logo"
+import { useTranslation } from "@/hooks/use-translation"
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -22,6 +24,7 @@ const formSchema = z.object({
 
 export default function ForgotPasswordPage() {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -35,8 +38,8 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!auth) {
         toast({
-            title: "Error",
-            description: "Firebase is not configured.",
+            title: t("Error"),
+            description: t("Firebase is not configured."),
             variant: "destructive",
         });
         return;
@@ -47,7 +50,7 @@ export default function ForgotPasswordPage() {
       setSubmitted(true)
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: t("Error"),
         description: error.message,
         variant: "destructive",
       })
@@ -63,11 +66,11 @@ export default function ForgotPasswordPage() {
           <Link href="/" className="mb-4 flex justify-center" aria-label="Back to home">
               <Logo className="h-14 w-14 text-primary" />
           </Link>
-          <CardTitle className="font-headline text-3xl">Forgot Password</CardTitle>
+          <CardTitle className="font-headline text-3xl">{t("Forgot Password")}</CardTitle>
           <CardDescription>
             {submitted 
-              ? `If an account exists for ${form.getValues("email")}, a password reset link has been sent.`
-              : "Enter your email address and we'll send you a link to reset your password."}
+              ? t(`If an account exists for {{email}}, a password reset link has been sent.`, { email: form.getValues("email") })
+              : t("Enter your email address and we'll send you a link to reset your password.")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -79,7 +82,7 @@ export default function ForgotPasswordPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>{t("Email")}</FormLabel>
                       <FormControl>
                         <Input type="email" placeholder="you@example.com" {...field} />
                       </FormControl>
@@ -89,7 +92,7 @@ export default function ForgotPasswordPage() {
                 />
                 <Button type="submit" className="w-full font-bold" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send Reset Link
+                  {t("Send Reset Link")}
                 </Button>
               </form>
             </Form>
@@ -97,7 +100,7 @@ export default function ForgotPasswordPage() {
              <Button asChild className="w-full">
                 <Link href="/login">
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Login
+                  {t("Back to Login")}
                 </Link>
              </Button>
           )}

@@ -35,6 +35,7 @@ import { Loader2, Terminal } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "@/hooks/use-translation"
 
 // Schemas
 const loginSchema = z.object({
@@ -64,23 +65,24 @@ function generateTeacherCode() {
 
 export function AuthForm() {
   const { firebaseInitialized } = useAuth()
+  const { t } = useTranslation()
   
   return (
     <>
       {!firebaseInitialized && (
          <Alert variant="destructive">
             <Terminal className="h-4 w-4" />
-            <AlertTitle>Configuration Error</AlertTitle>
+            <AlertTitle>{t("Configuration Error")}</AlertTitle>
             <AlertDescription>
-              Firebase is not configured. Please add your Firebase credentials to the 
-              <code> .env </code> file to enable authentication.
+              {t("Firebase is not configured. Please add your Firebase credentials to the")}
+              <code> .env </code> {t("file to enable authentication.")}
             </AlertDescription>
           </Alert>
       )}
       <Tabs defaultValue="teacher" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="teacher" disabled={!firebaseInitialized}>Teacher</TabsTrigger>
-          <TabsTrigger value="student" disabled={!firebaseInitialized}>Student</TabsTrigger>
+          <TabsTrigger value="teacher" disabled={!firebaseInitialized}>{t("Teacher")}</TabsTrigger>
+          <TabsTrigger value="student" disabled={!firebaseInitialized}>{t("Student")}</TabsTrigger>
         </TabsList>
         <TabsContent value="teacher">
           <AuthCard role="teacher" disabled={!firebaseInitialized} />
@@ -101,6 +103,7 @@ interface AuthCardProps {
 function AuthCard({ role, disabled }: AuthCardProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [mode, setMode] = useState<"login" | "signup">("login")
 
@@ -126,8 +129,8 @@ function AuthCard({ role, disabled }: AuthCardProps) {
   const onFormSubmit = async (values: z.infer<typeof currentSchema>) => {
     if (!auth || !db) {
       toast({
-        title: "Configuration Error",
-        description: "Firebase is not configured correctly.",
+        title: t("Configuration Error"),
+        description: t("Firebase is not configured correctly."),
         variant: "destructive",
       });
       return;
@@ -139,15 +142,15 @@ function AuthCard({ role, disabled }: AuthCardProps) {
       try {
         await signInWithEmailAndPassword(auth, values.email, values.password);
         toast({
-          title: "Login Successful",
-          description: "Welcome back! Redirecting...",
+          title: t("Login Successful"),
+          description: t("Welcome back! Redirecting..."),
         });
         router.push(`/dashboard/${role}`);
         router.refresh();
       } catch (error: any) {
         toast({
-          title: "Login Failed",
-          description: error.code === 'auth/invalid-credential' ? 'Invalid email or password.' : "An unexpected error occurred.",
+          title: t("Login Failed"),
+          description: error.code === 'auth/invalid-credential' ? t('Invalid email or password.') : t("An unexpected error occurred."),
           variant: "destructive",
         });
       }
@@ -161,8 +164,8 @@ function AuthCard({ role, disabled }: AuthCardProps) {
 
             if (querySnapshot.empty) {
                 toast({
-                    title: "Invalid Teacher Code",
-                    description: "No teacher found with that code. Please check and try again.",
+                    title: t("Invalid Teacher Code"),
+                    description: t("No teacher found with that code. Please check and try again."),
                     variant: "destructive",
                 });
                 setIsLoading(false);
@@ -197,15 +200,15 @@ function AuthCard({ role, disabled }: AuthCardProps) {
         await setDoc(doc(db, "users", user.uid), userData);
         
         toast({
-          title: "Account Created",
-          description: "Welcome! Your account has been created successfully.",
+          title: t("Account Created"),
+          description: t("Welcome! Your account has been created successfully."),
         });
         router.push(`/dashboard/${role}`);
         router.refresh();
       } catch (error: any) {
         toast({
-          title: "Sign Up Failed",
-          description: error.code === 'auth/email-already-in-use' ? 'This email is already registered.' : "An unexpected error occurred.",
+          title: t("Sign Up Failed"),
+          description: error.code === 'auth/email-already-in-use' ? t('This email is already registered.') : t("An unexpected error occurred."),
           variant: "destructive",
         });
       }
@@ -226,9 +229,9 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Name</FormLabel>
+                        <FormLabel>{t("Name")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Your full name" {...field} />
+                          <Input placeholder={t("Your full name")} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -239,9 +242,9 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                     name="school"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>School</FormLabel>
+                        <FormLabel>{t("School")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Your school's name" {...field} />
+                          <Input placeholder={t("Your school's name")} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -254,9 +257,9 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                       name="grade"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Grade</FormLabel>
+                          <FormLabel>{t("Grade")}</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., 5th" {...field} />
+                            <Input placeholder={t("e.g., 5th")} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -267,9 +270,9 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                       name="teacherCode"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Teacher Code</FormLabel>
+                          <FormLabel>{t("Teacher Code")}</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter the 6-character code" {...field} />
+                            <Input placeholder={t("Enter the 6-character code")} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -282,11 +285,11 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                     name="language"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Local Language</FormLabel>
+                        <FormLabel>{t("Local Language")}</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a language" />
+                              <SelectValue placeholder={t("Select a language")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -308,7 +311,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>{t("Email")}</FormLabel>
                       <FormControl>
                         <Input type="email" placeholder="you@example.com" {...field} />
                       </FormControl>
@@ -321,7 +324,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel>{t("Password")}</FormLabel>
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} />
                       </FormControl>
@@ -333,16 +336,16 @@ function AuthCard({ role, disabled }: AuthCardProps) {
             <div className="pt-2 space-y-2">
               <Button type="submit" className="w-full font-bold" disabled={isLoading || disabled}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {disabled ? "Firebase Not Configured" : (mode === 'login' ? 'Login' : 'Sign Up')}
+                {disabled ? t("Firebase Not Configured") : (mode === 'login' ? t('Login') : t('Sign Up'))}
               </Button>
                <Button variant="link" type="button" className="p-0 w-full" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} disabled={isLoading || disabled}>
-                {mode === 'login' ? "Don't have an account? Sign Up" : "Already have an account? Login"}
+                {mode === 'login' ? t("Don't have an account? Sign Up") : t("Already have an account? Login")}
               </Button>
             </div>
             {mode === 'login' && (
               <div className="text-center text-sm">
                   <Link href="/forgot-password" className={cn("underline text-muted-foreground hover:text-primary", disabled && "pointer-events-none opacity-50")}>
-                      Forgot Password?
+                      {t("Forgot Password?")}
                   </Link>
               </div>
             )}
