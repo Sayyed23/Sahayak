@@ -35,7 +35,7 @@ export default function LoginPage() {
             <Logo className="h-14 w-14 text-primary" />
           </Link>
           <h1 className="text-3xl font-bold font-headline text-foreground">Welcome to Sahayak</h1>
-          <p className="text-muted-foreground">Your teaching companion awaits.</p>
+          <p className="text-muted-foreground">Login or create an account to continue.</p>
         </div>
         <AuthForm />
       </div>
