@@ -53,7 +53,9 @@ const studentSignUpSchema = loginSchema.extend({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   school: z.string().min(3, { message: "School name is required." }),
   grade: z.string().min(1, { message: "Grade is required." }),
-  teacherCode: z.string().min(6, { message: "Teacher code must be 6 characters." }).max(6),
+  teacherCode: z.string()
+    .length(6, { message: "Teacher code must be exactly 6 characters." })
+    .transform((val) => val.toUpperCase()),
   language: z.string({ required_error: "Please select a language." }),
 })
 
@@ -159,7 +161,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
         let teacherId: string | null = null;
         if (role === 'student') {
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
-            const q = query(collection(db, "users"), where("teacherCode", "==", studentValues.teacherCode.toUpperCase()));
+            const q = query(collection(db, "users"), where("teacherCode", "==", studentValues.teacherCode));
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
@@ -283,7 +285,13 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                         <FormItem>
                           <FormLabel>{t("Teacher Code")}</FormLabel>
                           <FormControl>
-                            <Input placeholder={t("Enter the 6-character code")} {...field} />
+                            <Input
+                              placeholder={t("Enter the 6-character code")}
+                              {...field}
+                              maxLength={6}
+                              className="uppercase tracking-widest"
+                              autoCapitalize="characters"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
