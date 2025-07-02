@@ -8,6 +8,10 @@ import { ArrowRight, BookText, FileText, HelpCircle, PencilRuler } from "lucide-
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 import { useTranslation } from "@/hooks/use-translation"
+import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { useEffect, useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const quickAccessItems = [
   { title: "Start Lesson", href: "/dashboard/student/my-lessons", icon: PencilRuler, description: "Jump into your next lesson." },
@@ -16,17 +20,44 @@ const quickAccessItems = [
   { title: "View Assignments", href: "#", icon: FileText, description: "Check your upcoming tasks." },
 ]
 
-const assignments = [
-  { title: "Reading: The Brave Little Ant", due: "Due Today", href: "/assessment/1" },
-  { title: "Science: Chapter 3 Questions", due: "Due Tomorrow", href: "#" },
-  { title: "Math: Addition Worksheet", due: "Due in 3 days", href: "#" },
-  { title: "Hindi: Reading Practice", due: "Due next week", href: "#" },
-]
+interface Assignment {
+  id: string;
+  title: string;
+  due?: string;
+}
 
 export default function StudentDashboardPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
   const name = user?.displayName?.split(' ')[0] || t('Student')
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(true)
+
+  useEffect(() => {
+    if (!db || !user) return
+
+    setIsLoadingAssignments(true);
+    const assignmentsQuery = query(
+        collection(db, "assessments"),
+        where("assignedStudentIds", "array-contains", user.uid),
+        orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(assignmentsQuery, (snapshot) => {
+        const assignmentsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            title: doc.data().title,
+            due: t("New Assignment"),
+        }));
+        setAssignments(assignmentsData);
+        setIsLoadingAssignments(false);
+    }, (error) => {
+        console.error("Error fetching assignments:", error);
+        setIsLoadingAssignments(false);
+    });
+
+    return () => unsubscribe();
+  }, [db, user, t]);
 
   return (
     <div className="space-y-6">
@@ -60,17 +91,27 @@ export default function StudentDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {assignments.map((task, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-accent">
-                      <div>
-                          <p className="text-sm font-medium leading-none">{t(task.title)}</p>
-                          <p className="text-xs text-muted-foreground">{t(task.due)}</p>
-                      </div>
-                      <Button asChild variant="secondary" size="sm">
-                        <Link href={task.href || '#'}>{t("View")}</Link>
-                      </Button>
-                  </div>
-              ))}
+              {isLoadingAssignments ? (
+                <>
+                  <Skeleton className="h-14 w-full" />
+                  <Skeleton className="h-14 w-full" />
+                  <Skeleton className="h-14 w-full" />
+                </>
+              ) : assignments.length > 0 ? (
+                assignments.map((task) => (
+                    <div key={task.id} className="flex items-center justify-between p-3 rounded-lg bg-accent">
+                        <div>
+                            <p className="text-sm font-medium leading-none">{t(task.title)}</p>
+                            <p className="text-xs text-muted-foreground">{t(task.due || "No due date")}</p>
+                        </div>
+                        <Button asChild variant="secondary" size="sm">
+                          <Link href={`/assessment/${task.id}`}>{t("Start")}</Link>
+                        </Button>
+                    </div>
+                ))
+              ) : (
+                <p className="text-sm text-center text-muted-foreground p-4">{t("You have no new assignments. Great job!")}</p>
+              )}
             </div>
           </CardContent>
         </Card>

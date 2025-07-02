@@ -4,7 +4,8 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowLeft, Loader2, Upload, Wand2 } from "lucide-react"
-import { collection, query, where, onSnapshot } from "firebase/firestore"
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,24 +29,32 @@ interface Student {
 export default function AssignAssessmentPage() {
   const { toast } = useToast()
   const { t } = useTranslation()
+  const router = useRouter()
+  const { user } = useAuth()
+  
   const [passage, setPassage] = useState("")
-  const [topic, setTopic] = useState("")
+  const [passageTopic, setPassageTopic] = useState("")
+  const [assessmentTitle, setAssessmentTitle] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isAssigning, setIsAssigning] = useState(false)
+  
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [isLoadingStudents, setIsLoadingStudents] = useState(true)
-  const { user } = useAuth()
 
   useEffect(() => {
     if (!db || !user) return
 
-    // Fetch students assigned to the current teacher
     const studentsQuery = query(collection(db, "users"), where("teacherId", "==", user.uid))
 
     const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
       querySnapshot.forEach((doc) => {
-        studentsData.push({ id: doc.id, name: doc.data().name })
+        const data = doc.data()
+        // Ensure student has a name before adding
+        if(data.name) {
+          studentsData.push({ id: doc.id, name: data.name })
+        }
       })
       setStudents(studentsData)
       setIsLoadingStudents(false)
@@ -63,7 +72,7 @@ export default function AssignAssessmentPage() {
   }, [user, toast, t])
 
   const handleGeneratePassage = async () => {
-    if (!topic) {
+    if (!passageTopic) {
       toast({ title: t("Please enter a topic."), variant: "destructive" })
       return
     }
@@ -71,7 +80,7 @@ export default function AssignAssessmentPage() {
     setPassage("")
     try {
       const result = await generateReadingPassage({
-        topic: topic,
+        topic: passageTopic,
         gradeLevel: "Grade 4", // Placeholder
         wordCount: 100, // Placeholder
       })
@@ -81,6 +90,43 @@ export default function AssignAssessmentPage() {
       toast({ title: t("Failed to generate passage."), description: t("Please check your API key and try again."), variant: "destructive" })
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  const handleAssignAssessment = async () => {
+    if (!passage || selectedStudents.length === 0 || !assessmentTitle) {
+      toast({
+        title: t("Missing Information"),
+        description: t("Please provide a title, a passage, and select at least one student."),
+        variant: "destructive",
+      })
+      return
+    }
+    if (!user || !db) return;
+
+    setIsAssigning(true)
+    try {
+      await addDoc(collection(db, "assessments"), {
+        title: assessmentTitle,
+        passage: passage,
+        teacherId: user.uid,
+        assignedStudentIds: selectedStudents,
+        createdAt: serverTimestamp(),
+      })
+      toast({
+        title: t("Assessment Assigned!"),
+        description: t("Your students can now see the new assignment."),
+      })
+      router.push("/dashboard/teacher/assessments")
+    } catch (error) {
+      console.error("Error assigning assessment:", error)
+      toast({
+        title: t("Assignment Failed"),
+        description: t("There was a problem assigning the assessment. Please try again."),
+        variant: "destructive",
+      })
+    } finally {
+      setIsAssigning(false)
     }
   }
 
@@ -105,7 +151,18 @@ export default function AssignAssessmentPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>1. {t("Reading Passage")}</CardTitle>
+              <CardTitle>1. {t("Assessment Details")}</CardTitle>
+              <CardDescription>{t("Give your assessment a title for your records.")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Label htmlFor="assessment-title">{t("Assessment Title")}</Label>
+              <Input id="assessment-title" placeholder={t("e.g., Chapter 1 Reading Practice")} value={assessmentTitle} onChange={(e) => setAssessmentTitle(e.target.value)} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>2. {t("Reading Passage")}</CardTitle>
               <CardDescription>{t("Provide the text students will read. Generate one, paste it in, or upload a file.")}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -113,15 +170,15 @@ export default function AssignAssessmentPage() {
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="generate">{t("Generate")}</TabsTrigger>
                   <TabsTrigger value="paste">{t("Paste Text")}</TabsTrigger>
-                  <TabsTrigger value="upload">{t("Upload")}</TabsTrigger>
+                  <TabsTrigger value="upload" disabled>{t("Upload")}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="generate" className="pt-4 space-y-4">
                   <Label htmlFor="topic">{t("Generate a passage on the topic of...")}</Label>
                   <div className="flex gap-2">
-                    <Input id="topic" placeholder={t("e.g., 'A rainy day'")} value={topic} onChange={(e) => setTopic(e.target.value)} />
+                    <Input id="topic" placeholder={t("e.g., 'A rainy day'")} value={passageTopic} onChange={(e) => setPassageTopic(e.target.value)} />
                     <Button onClick={handleGeneratePassage} disabled={isGenerating}>
                       {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                      {t("Generate")}
+                      {isGenerating ? t("Generating...") : t("Generate")}
                     </Button>
                   </div>
                 </TabsContent>
@@ -130,16 +187,7 @@ export default function AssignAssessmentPage() {
                   <Textarea id="paste-area" rows={10} placeholder={t("Paste your reading passage here.")} value={passage} onChange={(e) => setPassage(e.target.value)} />
                 </TabsContent>
                 <TabsContent value="upload" className="pt-4">
-                  <div className="flex items-center justify-center w-full">
-                      <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-accent hover:bg-muted">
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
-                              <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">{t("Click to upload")}</span> {t("or drag and drop")}</p>
-                              <p className="text-xs text-muted-foreground">{t(".txt or .pdf file")}</p>
-                          </div>
-                          <Input id="dropzone-file" type="file" className="hidden" />
-                      </label>
-                  </div>
+                  {/* Upload functionality to be implemented */}
                 </TabsContent>
               </Tabs>
               <div className="mt-4">
@@ -157,12 +205,12 @@ export default function AssignAssessmentPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>2. {t("Assign Students")}</CardTitle>
+              <CardTitle>3. {t("Assign Students")}</CardTitle>
               <CardDescription>{t("Select the students who should receive this assessment.")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
-                <Checkbox id="select-all" onCheckedChange={handleSelectAll} checked={selectedStudents.length === students.length && students.length > 0} />
+                <Checkbox id="select-all" onCheckedChange={handleSelectAll} checked={students.length > 0 && selectedStudents.length === students.length} />
                 <Label htmlFor="select-all" className="font-medium">{t("Select All Students")}</Label>
               </div>
               <div className="space-y-2 border rounded-md p-2 h-64 overflow-y-auto">
@@ -174,7 +222,7 @@ export default function AssignAssessmentPage() {
                   </div>
                 ) : students.length > 0 ? (
                   students.map(student => (
-                    <div key={student.id} className="flex items-center space-x-2">
+                    <div key={student.id} className="flex items-center space-x-2 p-1 rounded-md hover:bg-accent">
                       <Checkbox
                         id={student.id}
                         checked={selectedStudents.includes(student.id)}
@@ -182,7 +230,7 @@ export default function AssignAssessmentPage() {
                           setSelectedStudents(prev => checked ? [...prev, student.id] : prev.filter(id => id !== student.id))
                         }}
                       />
-                      <Label htmlFor={student.id}>{student.name}</Label>
+                      <Label htmlFor={student.id} className="w-full cursor-pointer">{student.name}</Label>
                     </div>
                   ))
                 ) : (
@@ -191,7 +239,10 @@ export default function AssignAssessmentPage() {
               </div>
             </CardContent>
           </Card>
-          <Button size="lg" className="w-full">{t("Assign Assessment")} ({selectedStudents.length} {selectedStudents.length === 1 ? t('Student') : t('Students')})</Button>
+          <Button size="lg" className="w-full" onClick={handleAssignAssessment} disabled={isAssigning}>
+            {isAssigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {t("Assign Assessment")} ({selectedStudents.length} {selectedStudents.length === 1 ? t('Student') : t('Students')})
+          </Button>
         </div>
       </div>
     </div>

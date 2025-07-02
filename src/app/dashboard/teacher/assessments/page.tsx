@@ -9,10 +9,11 @@ import { Plus, List, Users, Clock, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
-import { collection, query, where, onSnapshot } from "firebase/firestore"
+import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore"
 import { useAuth } from "@/hooks/use-auth"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useTranslation } from "@/hooks/use-translation"
+import { formatDistanceToNow } from "date-fns"
 
 interface Student {
   id: string;
@@ -23,33 +24,36 @@ interface Student {
   hint: string;
 }
 
-const pendingReviews = [
-  { id: "review1", studentName: "Aarav Sharma", passageTitle: "The Brave Little Ant", submissionDate: "2024-07-28" },
-  { id: "review2", studentName: "Meera Iyer", passageTitle: "A Trip to the Market", submissionDate: "2024-07-27" },
-]
+interface PendingReview {
+    id: string;
+    studentName: string;
+    passageTitle: string;
+    submissionDate: string;
+}
 
 export default function AssessmentsPage() {
   const [students, setStudents] = useState<Student[]>([])
+  const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([])
   const [isLoadingStudents, setIsLoadingStudents] = useState(true)
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true)
   const { user } = useAuth()
   const { t } = useTranslation()
 
   useEffect(() => {
     if (!db || !user) return
 
+    setIsLoadingStudents(true)
     const studentsQuery = query(collection(db, "users"), where("teacherId", "==", user.uid))
-
-    const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
+    const unsubscribeStudents = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
       let isBoy = true;
       querySnapshot.forEach((doc) => {
         studentsData.push({
           id: doc.id,
           name: doc.data().name,
-          // For now, let's mock the rest of the data.
-          // In a real app, this would come from an 'assessments' collection.
-          status: Math.random() > 0.5 ? "Completed" : "Pending",
-          score: Math.random() > 0.5 ? `${Math.floor(Math.random() * 20 + 80)} WPM` : "N/A",
+          // TODO: This should come from an aggregation of assessments for this student
+          status: "N/A",
+          score: "N/A",
           avatar: "https://placehold.co/100x100.png",
           hint: isBoy ? "boy portrait" : "girl portrait",
         })
@@ -59,8 +63,33 @@ export default function AssessmentsPage() {
       setIsLoadingStudents(false)
     })
 
-    return () => unsubscribe()
-  }, [user])
+    setIsLoadingReviews(true);
+    const reviewsQuery = query(
+        collection(db, "submissions"),
+        where("teacherId", "==", user.uid),
+        where("status", "==", "pending_review"),
+        orderBy("submittedAt", "desc")
+    );
+    const unsubscribeReviews = onSnapshot(reviewsQuery, (snapshot) => {
+        const reviewsData = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const submittedAt = data.submittedAt?.toDate();
+            return {
+                id: doc.id,
+                studentName: data.studentName,
+                passageTitle: data.passageTitle,
+                submissionDate: submittedAt ? formatDistanceToNow(submittedAt, { addSuffix: true }) : t("Just now"),
+            };
+        });
+        setPendingReviews(reviewsData);
+        setIsLoadingReviews(false);
+    });
+
+    return () => {
+        unsubscribeStudents();
+        unsubscribeReviews();
+    }
+  }, [user, t])
 
   return (
     <div className="space-y-8">
@@ -76,7 +105,7 @@ export default function AssessmentsPage() {
             {t("Assign New Reading Assessment")}
           </Link>
         </Button>
-        <Button variant="outline">
+        <Button variant="outline" disabled>
           <List className="mr-2 h-4 w-4" />
           {t("View All Assigned Passages")}
         </Button>
@@ -120,9 +149,8 @@ export default function AssessmentsPage() {
                     </p>
                   </div>
                 </div>
-                <Button asChild variant="secondary" size="sm">
-                  {/* This link is a placeholder for a real report page */}
-                  <Link href={`/dashboard/teacher/assessments/review/review1`}>{t("View Reports")} <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                <Button asChild variant="secondary" size="sm" disabled>
+                  <Link href={`/dashboard/teacher/assessments/review/placeholder`}>{t("View Reports")} <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>
               </div>
             ))
@@ -138,11 +166,16 @@ export default function AssessmentsPage() {
           <CardDescription>{t("These assessments are waiting for your feedback.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {pendingReviews.length > 0 ? pendingReviews.map(review => (
+          {isLoadingReviews ? (
+            <div className="space-y-4">
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+            </div>
+          ) : pendingReviews.length > 0 ? pendingReviews.map(review => (
              <div key={review.id} className="flex flex-wrap items-center justify-between gap-4 p-3 rounded-lg hover:bg-accent">
                <div>
                   <p className="font-semibold">{review.studentName} - "{t(review.passageTitle)}"</p>
-                  <p className="text-sm text-muted-foreground">{t("Submitted on {{date}}", { date: review.submissionDate})}</p>
+                  <p className="text-sm text-muted-foreground">{t("Submitted {{date}}", { date: review.submissionDate})}</p>
                </div>
                 <Button asChild size="sm">
                     <Link href={`/dashboard/teacher/assessments/review/${review.id}`}>{t("Review")}</Link>

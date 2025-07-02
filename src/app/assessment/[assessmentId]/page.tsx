@@ -6,22 +6,40 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from '@/components/ui/button'
-import { Mic, Square, Play, Undo2, Loader2, AlertTriangle } from 'lucide-react'
+import { Mic, Square, Loader2, AlertTriangle, Undo2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useTranslation } from '@/hooks/use-translation'
+import { doc, getDoc, addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { useAuth } from '@/hooks/use-auth'
+import { Skeleton } from '@/components/ui/skeleton'
+import { analyzeReadingAssessment } from '@/ai/flows/analyze-reading-assessment'
 
-const mockPassage = {
-  id: "assessment1",
-  title: "The Brave Little Ant",
-  text: "The brave little ant was not afraid. He marched on, looking for food for his family. He saw a big, juicy leaf. It was much bigger than him, but he did not give up. He pulled and he tugged. Finally, he moved the leaf. He was very proud."
+interface Passage {
+  id: string;
+  title: string;
+  text: string;
+  teacherId: string;
+}
+
+const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 export default function TakeAssessmentPage({ params }: { params: { assessmentId: string } }) {
   const router = useRouter()
   const { toast } = useToast()
   const { t } = useTranslation()
+  const { user } = useAuth()
   
+  const [passage, setPassage] = useState<Passage | null>(null)
+  const [isLoadingPassage, setIsLoadingPassage] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
   const [audioURL, setAudioURL] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -30,6 +48,36 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   
+  useEffect(() => {
+    if (!db || !params.assessmentId) return;
+
+    const fetchPassage = async () => {
+        setIsLoadingPassage(true);
+        const docRef = doc(db, "assessments", params.assessmentId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            setPassage({
+                id: docSnap.id,
+                title: data.title,
+                text: data.passage,
+                teacherId: data.teacherId,
+            });
+        } else {
+            console.error("No such assessment!");
+            toast({
+                title: t("Assessment not found"),
+                variant: "destructive",
+            });
+            router.push('/dashboard/student');
+        }
+        setIsLoadingPassage(false);
+    };
+
+    fetchPassage();
+  }, [db, params.assessmentId, toast, t, router]);
+
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
@@ -41,7 +89,7 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
         }
         
         mediaRecorderRef.current.onstop = () => {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           const url = URL.createObjectURL(audioBlob)
           setAudioURL(url)
           audioChunksRef.current = []
@@ -79,23 +127,49 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
   }
 
   const handleSubmit = async () => {
+    if (!audioURL || !passage || !user || !db) return
+
     setIsSubmitting(true)
-    // In a real app, you would upload the audio blob to a server
-    // and call the analyzeReadingAssessment AI flow.
     toast({
       title: t("Submitting..."),
-      description: t("Analyzing your reading performance.")
+      description: t("Analyzing your reading performance. This may take a moment."),
     })
-    
-    // Simulate network delay and AI processing
-    setTimeout(() => {
-      setIsSubmitting(false)
-      toast({
-        title: t("Assessment Submitted!"),
-        description: t("Your teacher will review your submission soon.")
-      })
-      router.push('/dashboard/student')
-    }, 3000)
+
+    try {
+        const audioBlob = await fetch(audioURL).then(r => r.blob());
+        const audioDataUri = await blobToBase64(audioBlob);
+
+        const analysisResult = await analyzeReadingAssessment({
+            passageText: passage.text,
+            audioDataUri: audioDataUri,
+        });
+        
+        await addDoc(collection(db, "submissions"), {
+            studentId: user.uid,
+            studentName: user.displayName,
+            assessmentId: passage.id,
+            passageTitle: passage.title,
+            teacherId: passage.teacherId,
+            submittedAt: serverTimestamp(),
+            report: analysisResult,
+            audioUrl: '', // In a real app we'd upload the audio to Cloud Storage and save the URL here.
+            status: 'pending_review',
+        });
+
+        toast({
+            title: t("Assessment Submitted!"),
+            description: t("Your teacher has been notified and will review your submission."),
+        })
+        router.push('/dashboard/student')
+    } catch (error) {
+        console.error("Error submitting assessment:", error)
+        setIsSubmitting(false)
+        toast({
+            title: t("Submission Failed"),
+            description: t("There was an error analyzing your reading. Please try again. You may need to add your Gemini API key."),
+            variant: "destructive"
+        })
+    }
   }
 
   if (hasPermission === false) {
@@ -122,20 +196,24 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
     )
   }
   
-  if (hasPermission === null) {
-     return <div className="flex h-screen items-center justify-center">{t("Requesting microphone access...")}</div>
+  if (hasPermission === null || isLoadingPassage) {
+     return (
+       <div className="flex h-screen items-center justify-center">
+         <Loader2 className="h-8 w-8 animate-spin" />
+       </div>
+     )
   }
 
   return (
     <div className="flex flex-col items-center p-4 md:p-8">
       <Card className="w-full max-w-3xl">
         <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl">{t("Read Aloud: {{title}}", { title: mockPassage.title })}</CardTitle>
+          <CardTitle className="font-headline text-3xl">{t("Read Aloud: {{title}}", { title: passage?.title || "" })}</CardTitle>
           <CardDescription>{t("Read the passage below clearly. Tap the microphone when you are ready to start.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="p-6 border rounded-lg bg-muted/50 text-lg leading-relaxed">
-            {mockPassage.text}
+            {passage ? passage.text : <Skeleton className="h-40 w-full" />}
           </div>
 
           <div className="flex flex-col items-center gap-4">
@@ -145,6 +223,7 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
                 className="rounded-full h-20 w-20"
                 onClick={isRecording ? stopRecording : startRecording}
                 variant={isRecording ? 'destructive' : 'default'}
+                disabled={isSubmitting}
               >
                 {isRecording ? <Square className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
               </Button>
@@ -162,7 +241,7 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
                   </Button>
                   <Button onClick={handleSubmit} disabled={isSubmitting}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {t("Submit")}
+                    {isSubmitting ? t("Submitting...") : t("Submit")}
                   </Button>
                 </div>
               </div>
