@@ -54,8 +54,7 @@ const studentSignUpSchema = loginSchema.extend({
   school: z.string().min(3, { message: "School name is required." }),
   grade: z.string().min(1, { message: "Grade is required." }),
   teacherCode: z.string()
-    .length(6, { message: "Teacher code must be exactly 6 characters." })
-    .transform((val) => val.toUpperCase()),
+    .length(6, { message: "Teacher code must be exactly 6 characters." }),
   language: z.string({ required_error: "Please select a language." }),
 })
 
@@ -126,7 +125,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
 
   React.useEffect(() => {
     form.reset()
-  }, [mode, form])
+  }, [mode, role, form])
 
   const onFormSubmit = async (values: z.infer<typeof currentSchema>) => {
     if (!auth || !db) {
@@ -161,7 +160,9 @@ function AuthCard({ role, disabled }: AuthCardProps) {
         let teacherId: string | null = null;
         if (role === 'student') {
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
-            const q = query(collection(db, "users"), where("teacherCode", "==", studentValues.teacherCode));
+            // Explicitly convert to uppercase to ensure case-insensitive matching
+            const teacherCode = studentValues.teacherCode.toUpperCase();
+            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode));
             const querySnapshot = await getDocs(q);
 
             if (querySnapshot.empty) {
@@ -174,7 +175,8 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                 return;
             }
             
-            const teacherData = querySnapshot.docs[0].data();
+            const teacherDoc = querySnapshot.docs[0];
+            const teacherData = teacherDoc.data();
             if (teacherData.role !== 'teacher') {
                 toast({
                     title: t("Invalid Code"),
@@ -184,7 +186,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                 setIsLoading(false);
                 return;
             }
-            teacherId = querySnapshot.docs[0].id;
+            teacherId = teacherDoc.id;
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
