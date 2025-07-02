@@ -7,10 +7,90 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Mic, UploadCloud, Image as ImageIcon, Wand2, Save, Printer, FileAudio, Download, RefreshCw } from "lucide-react"
+import { Mic, UploadCloud, Image as ImageIcon, Wand2, Save, Printer, FileAudio, Download, RefreshCw, Loader2 } from "lucide-react"
 import Image from "next/image"
+import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { generateHyperLocalContent } from "@/ai/flows/generate-hyper-local-content"
+import { designVisualAid } from "@/ai/flows/design-visual-aid"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function CreateContentPage() {
+  const { toast } = useToast()
+
+  // State for Hyper-Local Content
+  const [contentText, setContentText] = useState("")
+  const [contentType, setContentType] = useState("")
+  const [outputLanguage, setOutputLanguage] = useState("")
+  const [generatedContent, setGeneratedContent] = useState("")
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false)
+
+  const handleGenerateContent = async () => {
+    if (!contentText || !contentType || !outputLanguage) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill out all fields to generate content.",
+        variant: "destructive",
+      })
+      return
+    }
+    setIsGeneratingContent(true)
+    setGeneratedContent("")
+    try {
+      const result = await generateHyperLocalContent({
+        text: contentText,
+        contentType: contentType,
+        outputLanguage: outputLanguage,
+      })
+      setGeneratedContent(result.generatedContent)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Error Generating Content",
+        description: "Something went wrong. Please try again. You may need to add your Gemini API key.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingContent(false)
+    }
+  }
+
+  // State for Visual Aid Designer
+  const [visualDescription, setVisualDescription] = useState("")
+  const [visualStyle, setVisualStyle] = useState<'hand-drawn' | 'professional' | 'chalkboard'>("hand-drawn")
+  const [generatedImageUrl, setGeneratedImageUrl] = useState("https://placehold.co/600x400.png")
+  const [isGeneratingVisual, setIsGeneratingVisual] = useState(false)
+
+  const handleGenerateVisual = async () => {
+     if (!visualDescription) {
+      toast({
+        title: "Missing Description",
+        description: "Please provide a description for the visual aid.",
+        variant: "destructive",
+      })
+      return
+    }
+    setIsGeneratingVisual(true)
+    try {
+      const result = await designVisualAid({
+        description: visualDescription,
+        style: visualStyle,
+      })
+      setGeneratedImageUrl(result.imageUrl)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Error Generating Visual",
+        description: "Something went wrong. Please try again. You may need to add your Gemini API key.",
+        variant: "destructive",
+      })
+      setGeneratedImageUrl("https://placehold.co/600x400.png")
+    } finally {
+      setIsGeneratingVisual(false)
+    }
+  }
+
+
   return (
     <div className="space-y-6">
        <div>
@@ -34,7 +114,14 @@ export default function CreateContentPage() {
               <div className="space-y-2">
                 <Label htmlFor="content-text">Input Text</Label>
                 <div className="relative">
-                  <Textarea id="content-text" placeholder="e.g., A story about a monkey in a mango grove near our village..." className="pr-10" rows={5}/>
+                  <Textarea 
+                    id="content-text" 
+                    placeholder="e.g., A story about a monkey in a mango grove near our village..." 
+                    className="pr-10" 
+                    rows={5}
+                    value={contentText}
+                    onChange={(e) => setContentText(e.target.value)}
+                  />
                   <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7">
                     <Mic className="h-4 w-4" />
                   </Button>
@@ -43,7 +130,7 @@ export default function CreateContentPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="content-type">Content Type</Label>
-                  <Select>
+                  <Select onValueChange={setContentType} value={contentType}>
                     <SelectTrigger id="content-type">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -55,7 +142,7 @@ export default function CreateContentPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="output-language">Output Language</Label>
-                  <Select>
+                  <Select onValueChange={setOutputLanguage} value={outputLanguage}>
                     <SelectTrigger id="output-language">
                       <SelectValue placeholder="Select language" />
                     </SelectTrigger>
@@ -66,17 +153,22 @@ export default function CreateContentPage() {
                   </Select>
                 </div>
               </div>
-              <Button className="w-full"><Wand2 className="mr-2 h-4 w-4" /> Generate Content</Button>
+              <Button className="w-full" onClick={handleGenerateContent} disabled={isGeneratingContent}>
+                {isGeneratingContent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                {isGeneratingContent ? "Generating..." : "Generate Content"}
+              </Button>
             </CardContent>
             <CardFooter className="flex flex-col items-start space-y-4">
               <Label>Generated Output</Label>
               <div className="w-full p-4 border rounded-md bg-muted/50 min-h-[150px]">
-                <p className="text-sm text-muted-foreground">Your generated content will appear here...</p>
+                {isGeneratingContent && <Skeleton className="h-20 w-full" />}
+                {!isGeneratingContent && !generatedContent && <p className="text-sm text-muted-foreground">Your generated content will appear here...</p>}
+                {generatedContent && <p className="text-sm whitespace-pre-wrap">{generatedContent}</p>}
               </div>
               <div className="flex gap-2">
-                  <Button variant="outline"><Save className="mr-2 h-4 w-4" /> Save</Button>
-                  <Button variant="outline"><Printer className="mr-2 h-4 w-4" /> Print</Button>
-                  <Button variant="outline"><FileAudio className="mr-2 h-4 w-4" /> Convert to Audio</Button>
+                  <Button variant="outline" disabled={!generatedContent}><Save className="mr-2 h-4 w-4" /> Save</Button>
+                  <Button variant="outline" disabled={!generatedContent}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+                  <Button variant="outline" disabled={!generatedContent}><FileAudio className="mr-2 h-4 w-4" /> Convert to Audio</Button>
               </div>
             </CardFooter>
           </Card>
@@ -150,11 +242,17 @@ export default function CreateContentPage() {
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="visual-description">Description</Label>
-                        <Textarea id="visual-description" placeholder="e.g., A simple diagram of the water cycle with labels for evaporation, condensation, and precipitation." rows={3} />
+                        <Textarea 
+                            id="visual-description" 
+                            placeholder="e.g., A simple diagram of the water cycle with labels for evaporation, condensation, and precipitation." 
+                            rows={3}
+                            value={visualDescription}
+                            onChange={(e) => setVisualDescription(e.target.value)}
+                        />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="visual-style">Style</Label>
-                        <Select>
+                        <Select onValueChange={(v) => setVisualStyle(v as any)} value={visualStyle}>
                             <SelectTrigger id="visual-style"><SelectValue placeholder="Select style" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="hand-drawn">Hand-drawn</SelectItem>
@@ -163,17 +261,22 @@ export default function CreateContentPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <Button className="w-full"><ImageIcon className="mr-2 h-4 w-4" /> Generate Visual</Button>
+                    <Button className="w-full" onClick={handleGenerateVisual} disabled={isGeneratingVisual}>
+                      {isGeneratingVisual ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
+                      {isGeneratingVisual ? "Generating..." : "Generate Visual"}
+                    </Button>
                 </CardContent>
                 <CardFooter className="flex flex-col items-start space-y-4">
                     <Label>Generated Visual</Label>
                     <div className="w-full p-4 border rounded-md bg-muted/50 aspect-video flex items-center justify-center">
-                        <Image src="https://placehold.co/600x400.png" alt="Placeholder" width={600} height={400} className="rounded-md" data-ai-hint="water cycle diagram" />
+                        {isGeneratingVisual ? <Skeleton className="h-full w-full" /> : 
+                            <Image src={generatedImageUrl} alt="Generated visual aid" width={600} height={400} className="rounded-md" data-ai-hint="water cycle diagram" />
+                        }
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Download Image</Button>
-                        <Button variant="outline"><Save className="mr-2 h-4 w-4" /> Save</Button>
-                        <Button variant="outline"><RefreshCw className="mr-2 h-4 w-4" /> Generate Variations</Button>
+                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><Download className="mr-2 h-4 w-4" /> Download Image</Button>
+                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><Save className="mr-2 h-4 w-4" /> Save</Button>
+                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><RefreshCw className="mr-2 h-4 w-4" /> Generate Variations</Button>
                     </div>
                 </CardFooter>
             </Card>

@@ -6,12 +6,51 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Mic, Wand2, Save, ThumbsUp, ThumbsDown, ArrowLeft } from "lucide-react"
+import { Mic, Wand2, Save, ThumbsUp, ThumbsDown, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { askAQuestion, AskAQuestionOutput } from "@/ai/flows/ask-a-question"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function AskAQuestionPage() {
   const router = useRouter()
+  const { toast } = useToast()
+
+  const [question, setQuestion] = useState("")
+  const [explanationLanguage, setExplanationLanguage] = useState("")
+  const [explanation, setExplanation] = useState<AskAQuestionOutput | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleGetExplanation = async () => {
+    if (!question || !explanationLanguage) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a question and select a language.",
+        variant: "destructive",
+      })
+      return
+    }
+    setIsLoading(true)
+    setExplanation(null)
+    try {
+      const result = await askAQuestion({
+        question,
+        explanationLanguage,
+      })
+      setExplanation(result)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Error",
+        description: "Failed to get an explanation. Please try again. You may need to add your Gemini API key.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -31,7 +70,13 @@ export default function AskAQuestionPage() {
             <div className="space-y-2">
               <Label htmlFor="question-input">Your Question</Label>
               <div className="relative">
-                <Input id="question-input" placeholder="e.g., Why is the sky blue?" className="pr-10"/>
+                <Input 
+                  id="question-input" 
+                  placeholder="e.g., Why is the sky blue?" 
+                  className="pr-10"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                />
                 <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-full w-10">
                   <Mic className="h-4 w-4" />
                 </Button>
@@ -39,7 +84,7 @@ export default function AskAQuestionPage() {
             </div>
             <div className="space-y-2">
                 <Label htmlFor="explanation-language">Explanation Language</Label>
-                <Select>
+                <Select onValueChange={setExplanationLanguage} value={explanationLanguage}>
                     <SelectTrigger id="explanation-language">
                         <SelectValue placeholder="Select language" />
                     </SelectTrigger>
@@ -49,22 +94,29 @@ export default function AskAQuestionPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <Button className="w-full"><Wand2 className="mr-2 h-4 w-4" /> Get Explanation</Button>
+            <Button className="w-full" onClick={handleGetExplanation} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+              {isLoading ? "Getting Explanation..." : "Get Explanation"}
+            </Button>
           </CardContent>
           <CardFooter className="flex flex-col items-start space-y-4">
             <Label>AI Generated Explanation</Label>
             <div className="w-full p-4 border rounded-md bg-muted/50 min-h-[150px] space-y-2">
-              <h3 className="font-semibold">Why is the sky blue?</h3>
-              <p className="text-sm">Imagine the sunlight is like a bunch of tiny balls of different colors all mixed together. When this light travels from the sun to us, it bumps into tiny things in the air, like dust and water droplets.</p>
-              <p className="text-sm"><span className="font-semibold">Analogy:</span> Think of it like throwing a mix of big red balls and small blue marbles at a net. The big red balls will mostly go straight through, but the small blue marbles will bounce and scatter everywhere. The Earth's atmosphere is like that net. It scatters the blue light (marbles) all over the sky, making it look blue to us!</p>
+              {isLoading && <Skeleton className="w-full h-24" />}
+              {!isLoading && !explanation && (
+                <p className="text-sm text-muted-foreground">Your explanation will appear here...</p>
+              )}
+              {explanation && (
+                <p className="text-sm whitespace-pre-wrap">{explanation.explanation}</p>
+              )}
             </div>
             <div className="flex justify-between w-full items-center">
                 <div className="flex gap-2">
-                    <Button variant="outline" size="icon"><ThumbsUp className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="icon"><ThumbsDown className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="icon" disabled={!explanation || isLoading}><ThumbsUp className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="icon" disabled={!explanation || isLoading}><ThumbsDown className="h-4 w-4" /></Button>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline"><Save className="mr-2 h-4 w-4" /> Save Explanation</Button>
+                    <Button variant="outline" disabled={!explanation || isLoading}><Save className="mr-2 h-4 w-4" /> Save Explanation</Button>
                 </div>
             </div>
           </CardFooter>

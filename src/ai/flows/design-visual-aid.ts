@@ -13,7 +13,7 @@ import {z} from 'genkit';
 
 const DesignVisualAidInputSchema = z.object({
   description: z.string().describe('The description of the visual aid.'),
-  style: z.enum(['hand-drawn', 'professional']).default('hand-drawn').describe('The style of the visual aid.'),
+  style: z.enum(['hand-drawn', 'professional', 'chalkboard']).default('hand-drawn').describe('The style of the visual aid.'),
 });
 export type DesignVisualAidInput = z.infer<typeof DesignVisualAidInputSchema>;
 
@@ -69,7 +69,7 @@ const designVisualAidFlow = ai.defineFlow(
   async input => {
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: input.description,
+      prompt: `${input.description}, in a ${input.style} style`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
