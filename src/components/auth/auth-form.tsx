@@ -138,6 +138,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
     }
 
     setIsLoading(true);
+    const teacherCodeValue = (values as any).teacherCode?.toUpperCase();
 
     if (mode === 'login') {
       try {
@@ -161,9 +162,16 @@ function AuthCard({ role, disabled }: AuthCardProps) {
 
         // For students, validate teacher code *before* creating the auth user.
         if (role === 'student') {
-          const studentValues = values as z.infer<typeof studentSignUpSchema>;
-          const teacherCode = studentValues.teacherCode.toUpperCase();
-          const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
+          if (!teacherCodeValue) {
+            toast({
+              title: t("Teacher Code Required"),
+              description: t("Please enter your teacher's 6-character code."),
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+          const q = query(collection(db, "users"), where("teacherCode", "==", teacherCodeValue), where("role", "==", "teacher"));
           const querySnapshot = await getDocs(q);
 
           if (querySnapshot.empty) {
