@@ -171,6 +171,17 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                 setIsLoading(false);
                 return;
             }
+            
+            const teacherData = querySnapshot.docs[0].data();
+            if (teacherData.role !== 'teacher') {
+                toast({
+                    title: t("Invalid Code"),
+                    description: t("The code you entered does not belong to a teacher."),
+                    variant: "destructive",
+                });
+                setIsLoading(false);
+                return;
+            }
             teacherId = querySnapshot.docs[0].id;
         }
 

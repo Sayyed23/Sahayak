@@ -39,10 +39,11 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { useEffect } from 'react'
 import { signOut } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { auth, db } from '@/lib/firebase'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Terminal } from 'lucide-react'
 import { useTranslation } from '@/hooks/use-translation'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 
 
 export default function TeacherLayout({
@@ -60,6 +61,24 @@ export default function TeacherLayout({
       router.push('/login')
     }
   }, [user, loading, router, firebaseInitialized])
+
+  useEffect(() => {
+    if (user && db) {
+      const userRef = doc(db, 'users', user.uid);
+      const ensureTeacherCode = async () => {
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // Ensure the user is a teacher and they don't have a code
+          if (data.role === 'teacher' && !data.teacherCode) {
+            const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            await updateDoc(userRef, { teacherCode: newCode });
+          }
+        }
+      }
+      ensureTeacherCode().catch(console.error);
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     if (auth) {
