@@ -79,7 +79,7 @@ export function AuthForm() {
       router.push(`/dashboard/${role}`)
       router.refresh()
     } catch (signInError: any) {
-      if (signInError.code === 'auth/invalid-credential') {
+      if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/user-not-found') {
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
           await updateProfile(userCredential.user, { displayName: values.name });
@@ -270,7 +270,7 @@ function AuthCard({ role, schema, onSubmit, isLoading, disabled }: AuthCardProps
               </Button>
             </div>
             <div className="text-center text-sm">
-                <Link href="#" className={cn("underline text-muted-foreground hover:text-primary", disabled && "pointer-events-none opacity-50")}>
+                <Link href="/forgot-password" className={cn("underline text-muted-foreground hover:text-primary", disabled && "pointer-events-none opacity-50")}>
                     Forgot Password?
                 </Link>
             </div>
