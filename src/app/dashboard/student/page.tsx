@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Button } from "@/components/ui/button"
@@ -15,9 +16,10 @@ const quickAccessItems = [
 ]
 
 const assignments = [
-  { title: "Science: Chapter 3 Questions", due: "Due Tomorrow" },
-  { title: "Math: Addition Worksheet", due: "Due in 3 days" },
-  { title: "Hindi: Reading Practice", due: "Due next week" },
+  { title: "Reading: The Brave Little Ant", due: "Due Today", href: "/assessment/1" },
+  { title: "Science: Chapter 3 Questions", due: "Due Tomorrow", href: "#" },
+  { title: "Math: Addition Worksheet", due: "Due in 3 days", href: "#" },
+  { title: "Hindi: Reading Practice", due: "Due next week", href: "#" },
 ]
 
 export default function StudentDashboardPage() {
@@ -62,7 +64,9 @@ export default function StudentDashboardPage() {
                           <p className="text-sm font-medium leading-none">{task.title}</p>
                           <p className="text-xs text-muted-foreground">{task.due}</p>
                       </div>
-                      <Button variant="secondary" size="sm">View</Button>
+                      <Button asChild variant="secondary" size="sm">
+                        <Link href={task.href || '#'}>View</Link>
+                      </Button>
                   </div>
               ))}
             </div>
