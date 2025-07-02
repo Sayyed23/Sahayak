@@ -161,10 +161,10 @@ function AuthCard({ role, disabled }: AuthCardProps) {
         if (role === 'student') {
           const studentValues = values as z.infer<typeof studentSignUpSchema>;
           const teacherCode = studentValues.teacherCode.toUpperCase();
-          const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode));
+          const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
           const querySnapshot = await getDocs(q);
 
-          if (querySnapshot.empty || querySnapshot.docs[0].data().role !== 'teacher') {
+          if (querySnapshot.empty) {
             toast({
               title: t("Invalid Teacher Code"),
               description: t("No teacher found with that code. Please check and try again."),
@@ -193,7 +193,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
         } else { // student
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
             const teacherCode = studentValues.teacherCode.toUpperCase();
-            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode));
+            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
             const querySnapshot = await getDocs(q);
             const teacherId = querySnapshot.docs[0].id; // We know this exists from the check above
 
@@ -217,11 +217,25 @@ function AuthCard({ role, disabled }: AuthCardProps) {
         router.push(`/dashboard/${role}`);
         router.refresh();
       } catch (error: any) {
-        toast({
-          title: t("Sign Up Failed"),
-          description: error.code === 'auth/email-already-in-use' ? t('This email is already registered.') : t("An unexpected error occurred."),
-          variant: "destructive",
-        });
+        if (error.code === 'unavailable' || (error.message && error.message.toLowerCase().includes('offline'))) {
+            toast({
+                title: t("Network Error"),
+                description: t("Could not connect to the server. Please check your connection and try again."),
+                variant: "destructive",
+            });
+        } else if (error.code === 'auth/email-already-in-use') {
+            toast({
+                title: t("Sign Up Failed"),
+                description: t("This email is already registered."),
+                variant: "destructive",
+            });
+        } else {
+            toast({
+                title: t("Sign Up Failed"),
+                description: error.message || t("An unexpected error occurred. Please try again."),
+                variant: "destructive",
+            });
+        }
       }
     }
     setIsLoading(false);
@@ -289,6 +303,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                               maxLength={6}
                               className="uppercase tracking-widest"
                               autoCapitalize="characters"
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                             />
                           </FormControl>
                           <FormMessage />
