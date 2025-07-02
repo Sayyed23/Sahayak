@@ -7,13 +7,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Mic, UploadCloud, Image as ImageIcon, Wand2, Save, Printer, FileAudio, Download, RefreshCw, Loader2 } from "lucide-react"
+import { Mic, UploadCloud, Image as ImageIcon, Wand2, Save, Printer, FileAudio, Download, RefreshCw, Loader2, X } from "lucide-react"
 import Image from "next/image"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { generateHyperLocalContent } from "@/ai/flows/generate-hyper-local-content"
 import { designVisualAid } from "@/ai/flows/design-visual-aid"
+import { extractTextFromImage, generateWorksheet } from "@/ai/flows/generate-worksheet"
 import { Skeleton } from "@/components/ui/skeleton"
+import { marked } from "marked"
 
 export default function CreateContentPage() {
   const { toast } = useToast()
@@ -24,6 +26,21 @@ export default function CreateContentPage() {
   const [outputLanguage, setOutputLanguage] = useState("")
   const [generatedContent, setGeneratedContent] = useState("")
   const [isGeneratingContent, setIsGeneratingContent] = useState(false)
+
+  // State for Visual Aid Designer
+  const [visualDescription, setVisualDescription] = useState("")
+  const [visualStyle, setVisualStyle] = useState<'hand-drawn' | 'professional' | 'chalkboard'>("hand-drawn")
+  const [generatedImageUrl, setGeneratedImageUrl] = useState("https://placehold.co/600x400.png")
+  const [isGeneratingVisual, setIsGeneratingVisual] = useState(false)
+
+  // State for Differentiated Materials
+  const [textbookImageDataUri, setTextbookImageDataUri] = useState<string | null>(null)
+  const [extractedText, setExtractedText] = useState("")
+  const [isExtractingText, setIsExtractingText] = useState(false)
+  const [gradeLevel, setGradeLevel] = useState("")
+  const [worksheetType, setWorksheetType] = useState<"mcq" | "fill-blanks" | "short-answer" | "">("")
+  const [generatedWorksheet, setGeneratedWorksheet] = useState("")
+  const [isGeneratingWorksheet, setIsGeneratingWorksheet] = useState(false)
 
   const handleGenerateContent = async () => {
     if (!contentText || !contentType || !outputLanguage) {
@@ -54,13 +71,7 @@ export default function CreateContentPage() {
       setIsGeneratingContent(false)
     }
   }
-
-  // State for Visual Aid Designer
-  const [visualDescription, setVisualDescription] = useState("")
-  const [visualStyle, setVisualStyle] = useState<'hand-drawn' | 'professional' | 'chalkboard'>("hand-drawn")
-  const [generatedImageUrl, setGeneratedImageUrl] = useState("https://placehold.co/600x400.png")
-  const [isGeneratingVisual, setIsGeneratingVisual] = useState(false)
-
+  
   const handleGenerateVisual = async () => {
      if (!visualDescription) {
       toast({
@@ -89,6 +100,65 @@ export default function CreateContentPage() {
       setIsGeneratingVisual(false)
     }
   }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUri = e.target?.result as string;
+        setTextbookImageDataUri(dataUri);
+        setIsExtractingText(true);
+        setExtractedText("");
+        setGeneratedWorksheet("");
+        try {
+          const result = await extractTextFromImage({ imageDataUri: dataUri });
+          setExtractedText(result.extractedText);
+        } catch (error) {
+          console.error(error);
+          toast({
+            title: "Error Extracting Text",
+            description: "Could not read text from the image. Please try another image.",
+            variant: "destructive",
+          });
+          setTextbookImageDataUri(null);
+        } finally {
+          setIsExtractingText(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleGenerateWorksheet = async () => {
+    if (!extractedText || !gradeLevel || !worksheetType) {
+        toast({
+            title: "Missing Information",
+            description: "Please ensure text is extracted and you've selected a grade and worksheet type.",
+            variant: "destructive",
+        });
+        return;
+    }
+    setIsGeneratingWorksheet(true);
+    setGeneratedWorksheet("");
+    try {
+        const result = await generateWorksheet({
+            text: extractedText,
+            gradeLevel,
+            worksheetType,
+        });
+        setGeneratedWorksheet(result.worksheetContent);
+    } catch (error) {
+        console.error(error);
+        toast({
+            title: "Error Generating Worksheet",
+            description: "Something went wrong. Please try again.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsGeneratingWorksheet(false);
+    }
+  };
 
 
   return (
@@ -183,21 +253,49 @@ export default function CreateContentPage() {
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label>Upload Textbook Image</Label>
-                        <div className="flex items-center justify-center w-full">
-                            <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-accent hover:bg-muted">
-                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
-                                    <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                    <p className="text-xs text-muted-foreground">PNG, JPG (MAX. 5MB)</p>
-                                </div>
-                                <Input id="dropzone-file" type="file" className="hidden" />
-                            </label>
-                        </div>
+                        {textbookImageDataUri ? (
+                            <div className="relative">
+                                <Image src={textbookImageDataUri} width={600} height={400} alt="Textbook page preview" className="w-full h-auto rounded-md border" />
+                                <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => {
+                                    setTextbookImageDataUri(null)
+                                    setExtractedText("")
+                                    setGeneratedWorksheet("")
+                                }}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center w-full">
+                                <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-accent hover:bg-muted">
+                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                                        <p className="text-xs text-muted-foreground">PNG, JPG (MAX. 5MB)</p>
+                                    </div>
+                                    <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileChange} accept="image/png, image/jpeg" />
+                                </label>
+                            </div>
+                        )}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="extracted-text">Extracted Text (Editable)</Label>
+                        {isExtractingText ? (
+                            <Skeleton className="h-32 w-full" />
+                        ) : (
+                            <Textarea 
+                                id="extracted-text" 
+                                placeholder="Text from your image will appear here..." 
+                                rows={8}
+                                value={extractedText}
+                                onChange={(e) => setExtractedText(e.target.value)}
+                                disabled={!textbookImageDataUri || isExtractingText}
+                            />
+                        )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="grade-level">Grade Level</Label>
-                        <Select>
+                        <Select onValueChange={setGradeLevel} value={gradeLevel} disabled={isExtractingText || isGeneratingWorksheet}>
                           <SelectTrigger id="grade-level"><SelectValue placeholder="Select grade" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="1-2">Grade 1-2</SelectItem>
@@ -208,7 +306,7 @@ export default function CreateContentPage() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="worksheet-type">Worksheet Type</Label>
-                        <Select>
+                        <Select onValueChange={(v) => setWorksheetType(v as any)} value={worksheetType} disabled={isExtractingText || isGeneratingWorksheet}>
                           <SelectTrigger id="worksheet-type"><SelectValue placeholder="Select type" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="mcq">Multiple Choice</SelectItem>
@@ -218,16 +316,25 @@ export default function CreateContentPage() {
                         </Select>
                       </div>
                     </div>
-                    <Button className="w-full"><Wand2 className="mr-2 h-4 w-4" /> Generate Worksheets</Button>
+                    <Button className="w-full" onClick={handleGenerateWorksheet} disabled={isExtractingText || isGeneratingWorksheet || !extractedText}>
+                        {isGeneratingWorksheet ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                        {isGeneratingWorksheet ? "Generating Worksheet..." : "Generate Worksheet"}
+                    </Button>
                 </CardContent>
                 <CardFooter className="flex flex-col items-start space-y-4">
-                    <Label>Generated Worksheets</Label>
-                    <div className="w-full p-4 border rounded-md bg-muted/50 min-h-[150px]">
-                        <p className="text-sm text-muted-foreground">Generated worksheets will appear here...</p>
+                    <Label>Generated Worksheet</Label>
+                    <div className="w-full p-4 border rounded-md bg-muted/50 min-h-[150px] prose prose-sm max-w-none">
+                        {isGeneratingWorksheet && <Skeleton className="h-24 w-full" />}
+                        {!isGeneratingWorksheet && !generatedWorksheet && (
+                            <p className="text-sm text-muted-foreground not-prose">Generated worksheet will appear here...</p>
+                        )}
+                        {generatedWorksheet && (
+                          <div dangerouslySetInnerHTML={{ __html: marked(generatedWorksheet) as string }} />
+                        )}
                     </div>
                      <div className="flex gap-2">
-                        <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Download All (PDF)</Button>
-                        <Button variant="outline"><Printer className="mr-2 h-4 w-4" /> Print Selected</Button>
+                        <Button variant="outline" disabled={!generatedWorksheet || isGeneratingWorksheet}><Download className="mr-2 h-4 w-4" /> Download (PDF)</Button>
+                        <Button variant="outline" disabled={!generatedWorksheet || isGeneratingWorksheet}><Printer className="mr-2 h-4 w-4" /> Print</Button>
                     </div>
                 </CardFooter>
             </Card>
