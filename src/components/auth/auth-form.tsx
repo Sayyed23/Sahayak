@@ -157,62 +157,58 @@ function AuthCard({ role, disabled }: AuthCardProps) {
       }
     } else { // signup
       try {
-        let teacherId: string | null = null;
+        // For students, validate teacher code *before* creating the auth user.
         if (role === 'student') {
-            const studentValues = values as z.infer<typeof studentSignUpSchema>;
-            // Explicitly convert to uppercase to ensure case-insensitive matching
-            const teacherCode = studentValues.teacherCode.toUpperCase();
-            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode));
-            const querySnapshot = await getDocs(q);
+          const studentValues = values as z.infer<typeof studentSignUpSchema>;
+          const teacherCode = studentValues.teacherCode.toUpperCase();
+          const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode));
+          const querySnapshot = await getDocs(q);
 
-            if (querySnapshot.empty) {
-                toast({
-                    title: t("Invalid Teacher Code"),
-                    description: t("No teacher found with that code. Please check and try again."),
-                    variant: "destructive",
-                });
-                setIsLoading(false);
-                return;
-            }
-            
-            const teacherDoc = querySnapshot.docs[0];
-            const teacherData = teacherDoc.data();
-            if (teacherData.role !== 'teacher') {
-                toast({
-                    title: t("Invalid Code"),
-                    description: t("The code you entered does not belong to a teacher."),
-                    variant: "destructive",
-                });
-                setIsLoading(false);
-                return;
-            }
-            teacherId = teacherDoc.id;
+          if (querySnapshot.empty || querySnapshot.docs[0].data().role !== 'teacher') {
+            toast({
+              title: t("Invalid Teacher Code"),
+              description: t("No teacher found with that code. Please check and try again."),
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
-        const signupValues = values as z.infer<typeof signupSchema>; // Common fields
-        await updateProfile(user, { displayName: signupValues.name });
+        await updateProfile(user, { displayName: (values as any).name });
         
-        // Add user to Firestore
-        const userData: any = {
-            uid: user.uid,
-            name: signupValues.name,
-            email: user.email,
-            role: role,
-            school: signupValues.school,
-            language: signupValues.language,
-        };
-
         if (role === 'teacher') {
-            userData.teacherCode = generateTeacherCode();
-        } else if (role === 'student') {
+            const teacherData = {
+                uid: user.uid,
+                name: (values as any).name,
+                email: user.email,
+                role: 'teacher',
+                school: (values as any).school,
+                language: (values as any).language,
+                teacherCode: generateTeacherCode(),
+            };
+            await setDoc(doc(db, "users", user.uid), teacherData);
+        } else { // student
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
-            userData.grade = studentValues.grade;
-            userData.teacherId = teacherId;
-        }
+            const teacherCode = studentValues.teacherCode.toUpperCase();
+            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode));
+            const querySnapshot = await getDocs(q);
+            const teacherId = querySnapshot.docs[0].id; // We know this exists from the check above
 
-        await setDoc(doc(db, "users", user.uid), userData);
+            const studentData = {
+                uid: user.uid,
+                name: studentValues.name,
+                email: user.email,
+                role: 'student',
+                school: studentValues.school,
+                language: studentValues.language,
+                grade: studentValues.grade,
+                teacherId: teacherId,
+            };
+            await setDoc(doc(db, "users", user.uid), studentData);
+        }
         
         toast({
           title: t("Account Created"),
