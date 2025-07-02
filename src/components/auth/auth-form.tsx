@@ -157,6 +157,8 @@ function AuthCard({ role, disabled }: AuthCardProps) {
       }
     } else { // signup
       try {
+        let teacherId: string | null = null;
+
         // For students, validate teacher code *before* creating the auth user.
         if (role === 'student') {
           const studentValues = values as z.infer<typeof studentSignUpSchema>;
@@ -173,6 +175,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
             setIsLoading(false);
             return;
           }
+          teacherId = querySnapshot.docs[0].id; // Store the teacher's ID
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
@@ -192,11 +195,6 @@ function AuthCard({ role, disabled }: AuthCardProps) {
             await setDoc(doc(db, "users", user.uid), teacherData);
         } else { // student
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
-            const teacherCode = studentValues.teacherCode.toUpperCase();
-            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
-            const querySnapshot = await getDocs(q);
-            const teacherId = querySnapshot.docs[0].id; // We know this exists from the check above
-
             const studentData = {
                 uid: user.uid,
                 name: studentValues.name,
@@ -205,7 +203,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                 school: studentValues.school,
                 language: studentValues.language,
                 grade: studentValues.grade,
-                teacherId: teacherId,
+                teacherId: teacherId!, // Use the stored ID.
             };
             await setDoc(doc(db, "users", user.uid), studentData);
         }
