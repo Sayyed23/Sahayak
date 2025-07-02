@@ -6,6 +6,7 @@ import * as z from "zod"
 import { useRouter } from "next/navigation"
 import React, { useState } from "react"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -28,7 +29,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
-import { auth } from "@/lib/firebase"
+import { auth, db } from "@/lib/firebase"
 import { Loader2, Terminal } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -117,7 +118,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
   }, [mode, form])
 
   const onFormSubmit = async (values: z.infer<typeof currentSchema>) => {
-    if (!auth) {
+    if (!auth || !db) {
       toast({
         title: "Configuration Error",
         description: "Firebase is not configured correctly.",
@@ -147,8 +148,19 @@ function AuthCard({ role, disabled }: AuthCardProps) {
     } else { // signup
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
         const signupValues = values as z.infer<typeof signupSchema>;
-        await updateProfile(userCredential.user, { displayName: signupValues.name });
+        await updateProfile(user, { displayName: signupValues.name });
+        
+        // Add user to Firestore
+        await setDoc(doc(db, "users", user.uid), {
+            uid: user.uid,
+            name: signupValues.name,
+            email: user.email,
+            role: role,
+            school: signupValues.school,
+            ...(role === 'student' && { grade: (values as any).grade }),
+        });
         
         toast({
           title: "Account Created",
