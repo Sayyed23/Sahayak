@@ -134,7 +134,7 @@ export default function TeacherLayout({
                         <AvatarFallback>{user.displayName?.charAt(0).toUpperCase() || "T"}</AvatarFallback>
                     </Avatar>
                     <div className="text-left group-data-[collapsible=icon]:hidden">
-                        <p className="font-semibold text-sm">{user.displayName || "Teacher Name"}</p>
+                        <p className="font-semibold text-sm">{user.displayName || "Teacher"}</p>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
                 </Button>

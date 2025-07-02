@@ -1,8 +1,11 @@
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ArrowRight, BookText, FileText, HelpCircle, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
 const quickAccessItems = [
   { title: "Generate Story", href: "/dashboard/teacher/create-content", icon: BookText, description: "Create a hyper-local story." },
@@ -19,10 +22,13 @@ const recentActivities = [
 ]
 
 export default function TeacherDashboardPage() {
+  const { user } = useAuth()
+  const name = user?.displayName?.split(' ')[0] || 'Teacher'
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Good Morning, Teacher!</h1>
+        <h1 className="text-3xl font-bold font-headline">Good Morning, {name}!</h1>
         <p className="text-muted-foreground">Here's your dashboard to kickstart the day.</p>
       </div>
 

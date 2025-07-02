@@ -4,28 +4,48 @@ import { AuthForm } from '@/components/auth/auth-form'
 import { Logo } from '@/components/logo'
 import { useAuth } from '@/hooks/use-auth'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { UserCheck } from 'lucide-react'
 
 export default function LoginPage() {
   const { user, loading } = useAuth()
-  const router = useRouter()
 
-  useEffect(() => {
-    if (!loading && user) {
-      // User is logged in, redirect to a default dashboard.
-      // The specific dashboard layout will handle role-based content.
-      router.push('/dashboard/teacher')
-    }
-  }, [user, loading, router])
-
-  if (loading || user) {
+  if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         Loading...
       </div>
     )
   }
+
+  // If user is already logged in, show a role selection screen
+  if (user) {
+    return (
+       <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
+         <Card className="w-full max-w-md">
+           <CardHeader className="text-center">
+             <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
+               <UserCheck className="h-10 w-10 text-primary" />
+             </div>
+             <CardTitle className="font-headline text-2xl">You're Already Logged In</CardTitle>
+             <CardDescription>
+               Welcome back, {user.displayName || 'user'}! Please select your dashboard.
+             </CardDescription>
+           </CardHeader>
+           <CardContent className="flex flex-col gap-4">
+             <Button asChild size="lg">
+               <Link href="/dashboard/teacher">Teacher Dashboard</Link>
+             </Button>
+             <Button asChild variant="secondary" size="lg">
+               <Link href="/dashboard/student">Student Dashboard</Link>
+             </Button>
+           </CardContent>
+         </Card>
+       </div>
+    )
+  }
+
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">

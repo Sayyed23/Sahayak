@@ -1,12 +1,21 @@
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
 
 export default function SettingsPage() {
+  const { user } = useAuth()
+
+  if (!user) {
+    return <div>Loading settings...</div>
+  }
+  
   return (
     <div className="space-y-8">
       <div>
@@ -23,11 +32,11 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" defaultValue="Teacher Name" />
+              <Input id="name" defaultValue={user.displayName || ""} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue="teacher@school.org" disabled />
+              <Input id="email" type="email" defaultValue={user.email || ""} disabled />
             </div>
             <div className="space-y-2">
               <Label htmlFor="school">School</Label>

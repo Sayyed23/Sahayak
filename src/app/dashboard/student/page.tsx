@@ -1,8 +1,11 @@
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { ArrowRight, BookText, FileText, HelpCircle, PencilRuler } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
 const quickAccessItems = [
   { title: "Start Lesson", href: "/dashboard/student/my-lessons", icon: PencilRuler, description: "Jump into your next lesson." },
@@ -18,10 +21,13 @@ const assignments = [
 ]
 
 export default function StudentDashboardPage() {
+  const { user } = useAuth()
+  const name = user?.displayName?.split(' ')[0] || 'Student'
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Good Morning, Student!</h1>
+        <h1 className="text-3xl font-bold font-headline">Good Morning, {name}!</h1>
         <p className="text-muted-foreground">Ready for a new day of learning?</p>
       </div>
 
