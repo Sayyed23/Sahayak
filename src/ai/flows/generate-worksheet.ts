@@ -15,7 +15,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 // Schema for extracting text
-export const ExtractTextFromImageInputSchema = z.object({
+const ExtractTextFromImageInputSchema = z.object({
   imageDataUri: z
     .string()
     .describe(
@@ -24,7 +24,7 @@ export const ExtractTextFromImageInputSchema = z.object({
 });
 export type ExtractTextFromImageInput = z.infer<typeof ExtractTextFromImageInputSchema>;
 
-export const ExtractTextFromImageOutputSchema = z.object({
+const ExtractTextFromImageOutputSchema = z.object({
   extractedText: z.string().describe('The text extracted from the image.'),
 });
 export type ExtractTextFromImageOutput = z.infer<typeof ExtractTextFromImageOutputSchema>;
@@ -38,14 +38,14 @@ export async function extractTextFromImage(input: ExtractTextFromImageInput): Pr
 
 
 // Schema for worksheet generation
-export const GenerateWorksheetInputSchema = z.object({
+const GenerateWorksheetInputSchema = z.object({
   text: z.string().describe('The text content to create a worksheet from.'),
   gradeLevel: z.string().describe('The target grade level for the worksheet (e.g., "Grade 1-2").'),
   worksheetType: z.enum(['mcq', 'fill-blanks', 'short-answer']).describe('The type of worksheet to generate.'),
 });
 export type GenerateWorksheetInput = z.infer<typeof GenerateWorksheetInputSchema>;
 
-export const GenerateWorksheetOutputSchema = z.object({
+const GenerateWorksheetOutputSchema = z.object({
   worksheetContent: z.string().describe('The generated worksheet content in Markdown format.'),
 });
 export type GenerateWorksheetOutput = z.infer<typeof GenerateWorksheetOutputSchema>;
