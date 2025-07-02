@@ -1,3 +1,4 @@
+
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -6,7 +7,7 @@ import * as z from "zod"
 import { useRouter } from "next/navigation"
 import React, { useState } from "react"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth"
-import { doc, setDoc } from "firebase/firestore"
+import { doc, setDoc, getDocs, collection, query, where } from "firebase/firestore"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -51,10 +52,15 @@ const studentSignUpSchema = loginSchema.extend({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   school: z.string().min(3, { message: "School name is required." }),
   grade: z.string().min(1, { message: "Grade is required." }),
+  teacherCode: z.string().min(6, { message: "Teacher code must be 6 characters." }).max(6),
   language: z.string({ required_error: "Please select a language." }),
 })
 
 type UserRole = "teacher" | "student"
+
+function generateTeacherCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase()
+}
 
 export function AuthForm() {
   const { firebaseInitialized } = useAuth()
@@ -109,7 +115,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
       name: "",
       school: "",
       language: undefined,
-      ...(role === "student" && { grade: "" }),
+      ...(role === "student" && { grade: "", teacherCode: "" }),
     },
   })
 
@@ -147,20 +153,48 @@ function AuthCard({ role, disabled }: AuthCardProps) {
       }
     } else { // signup
       try {
+        let teacherId: string | null = null;
+        if (role === 'student') {
+            const studentValues = values as z.infer<typeof studentSignUpSchema>;
+            const q = query(collection(db, "users"), where("teacherCode", "==", studentValues.teacherCode.toUpperCase()));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                toast({
+                    title: "Invalid Teacher Code",
+                    description: "No teacher found with that code. Please check and try again.",
+                    variant: "destructive",
+                });
+                setIsLoading(false);
+                return;
+            }
+            teacherId = querySnapshot.docs[0].id;
+        }
+
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
-        const signupValues = values as z.infer<typeof signupSchema>;
+        const signupValues = values as z.infer<typeof signupSchema>; // Common fields
         await updateProfile(user, { displayName: signupValues.name });
         
         // Add user to Firestore
-        await setDoc(doc(db, "users", user.uid), {
+        const userData: any = {
             uid: user.uid,
             name: signupValues.name,
             email: user.email,
             role: role,
             school: signupValues.school,
-            ...(role === 'student' && { grade: (values as any).grade }),
-        });
+            language: signupValues.language,
+        };
+
+        if (role === 'teacher') {
+            userData.teacherCode = generateTeacherCode();
+        } else if (role === 'student') {
+            const studentValues = values as z.infer<typeof studentSignUpSchema>;
+            userData.grade = studentValues.grade;
+            userData.teacherId = teacherId;
+        }
+
+        await setDoc(doc(db, "users", user.uid), userData);
         
         toast({
           title: "Account Created",
@@ -214,6 +248,7 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                     )}
                   />
                   {role === 'student' && (
+                    <>
                     <FormField
                       control={form.control}
                       name="grade"
@@ -227,6 +262,20 @@ function AuthCard({ role, disabled }: AuthCardProps) {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={form.control}
+                      name="teacherCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Teacher Code</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter the 6-character code" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    </>
                   )}
                    <FormField
                     control={form.control}

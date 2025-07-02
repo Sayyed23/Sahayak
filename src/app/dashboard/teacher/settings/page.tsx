@@ -8,9 +8,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
+import { useState, useEffect } from "react"
+import { db } from "@/lib/firebase"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
+import { Copy } from "lucide-react"
 
 export default function SettingsPage() {
   const { user } = useAuth()
+  const { toast } = useToast()
+  const [teacherCode, setTeacherCode] = useState("")
+
+  function generateTeacherCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase()
+  }
+
+  useEffect(() => {
+    if (user && db) {
+      const fetchTeacherCode = async () => {
+        const teacherRef = doc(db, "users", user.uid)
+        const teacherSnap = await getDoc(teacherRef)
+        if (teacherSnap.exists()) {
+          let code = teacherSnap.data().teacherCode
+          if (!code) {
+            code = generateTeacherCode()
+            await updateDoc(teacherRef, { teacherCode: code })
+          }
+          setTeacherCode(code)
+        }
+      }
+      fetchTeacherCode()
+    }
+  }, [user])
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(teacherCode)
+    toast({
+      title: "Copied!",
+      description: "Teacher code copied to clipboard.",
+    })
+  }
 
   if (!user) {
     return <div>Loading settings...</div>
@@ -23,13 +60,13 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Manage your account and application preferences.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>My Profile</CardTitle>
-          <CardDescription>Update your personal information.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>My Profile</CardTitle>
+            <CardDescription>Update your personal information.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" defaultValue={user.displayName || ""} />
@@ -55,28 +92,48 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <Button>Save Changes</Button>
-        </CardContent>
-      </Card>
+            <Button>Save Changes</Button>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>App Settings</CardTitle>
-          <CardDescription>Configure application notifications.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <div className="flex items-center justify-between space-x-2 p-4 rounded-md border">
-                <Label htmlFor="notifications-toggle" className="flex flex-col space-y-1">
-                    <span>Email Notifications</span>
-                    <span className="font-normal leading-snug text-muted-foreground">
-                        Receive updates and summaries via email.
-                    </span>
-                </Label>
-                <Switch id="notifications-toggle" />
-            </div>
-        </CardContent>
-      </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Teacher Code</CardTitle>
+              <CardDescription>Students can use this code to join your classroom when they sign up.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {teacherCode ? (
+                  <div className="flex items-center gap-2">
+                    <Input value={teacherCode} readOnly className="font-mono text-lg tracking-widest" />
+                    <Button variant="outline" size="icon" onClick={handleCopyCode}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Generating code...</p>
+                )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>App Settings</CardTitle>
+              <CardDescription>Configure application notifications.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center justify-between space-x-2 p-4 rounded-md border">
+                    <Label htmlFor="notifications-toggle" className="flex flex-col space-y-1">
+                        <span>Email Notifications</span>
+                        <span className="font-normal leading-snug text-muted-foreground">
+                            Receive updates and summaries via email.
+                        </span>
+                    </Label>
+                    <Switch id="notifications-toggle" />
+                </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>

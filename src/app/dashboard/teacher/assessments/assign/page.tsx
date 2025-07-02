@@ -37,8 +37,8 @@ export default function AssignAssessmentPage() {
   useEffect(() => {
     if (!db || !user) return
 
-    // In a real app, you would likely filter students by teacherId or school
-    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
+    // Fetch students assigned to the current teacher
+    const studentsQuery = query(collection(db, "users"), where("teacherId", "==", user.uid))
 
     const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
@@ -184,7 +184,7 @@ export default function AssignAssessmentPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground p-2 text-center">No students found. New students will appear here once they sign up.</p>
+                  <p className="text-sm text-muted-foreground p-2 text-center">No students found. New students will appear here once they sign up with your code.</p>
                 )}
               </div>
             </CardContent>

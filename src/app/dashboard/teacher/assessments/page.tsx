@@ -35,7 +35,7 @@ export default function AssessmentsPage() {
   useEffect(() => {
     if (!db || !user) return
 
-    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
+    const studentsQuery = query(collection(db, "users"), where("teacherId", "==", user.uid))
 
     const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
@@ -125,7 +125,7 @@ export default function AssessmentsPage() {
               </div>
             ))
           ) : (
-             <p className="text-sm text-muted-foreground text-center p-4">No students have signed up yet.</p>
+             <p className="text-sm text-muted-foreground text-center p-4">No students have signed up yet. New students will appear here after using your code.</p>
           )}
         </CardContent>
       </Card>
