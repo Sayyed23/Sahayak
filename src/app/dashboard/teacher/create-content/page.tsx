@@ -55,6 +55,7 @@ export default function CreateContentPage() {
   // State for Game Generator
   const [gameTopic, setGameTopic] = useState("")
   const [gameGradeLevel, setGameGradeLevel] = useState("")
+  const [gameType, setGameType] = useState<"quiz" | "matching" | "">("")
   const [generatedGame, setGeneratedGame] = useState<GameData | null>(null)
   const [isGeneratingGame, setIsGeneratingGame] = useState(false)
   const [isSavingGame, setIsSavingGame] = useState(false)
@@ -241,10 +242,10 @@ export default function CreateContentPage() {
   }
 
   const handleGenerateGame = async () => {
-    if (!gameTopic || !gameGradeLevel) {
+    if (!gameTopic || !gameGradeLevel || !gameType) {
         toast({
             title: t("Missing Information"),
-            description: t("Please enter a topic and select a grade level."),
+            description: t("Please enter a topic, select a grade level, and choose a game type."),
             variant: "destructive",
         });
         return;
@@ -255,6 +256,7 @@ export default function CreateContentPage() {
         const result = await generateGame({
             topic: gameTopic,
             gradeLevel: gameGradeLevel,
+            gameType: gameType,
         });
         setGeneratedGame(result);
     } catch (error) {
@@ -532,16 +534,28 @@ export default function CreateContentPage() {
                   onChange={(e) => setGameTopic(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="game-grade-level">{t("Grade Level")}</Label>
-                <Select onValueChange={setGameGradeLevel} value={gameGradeLevel}>
-                  <SelectTrigger id="game-grade-level"><SelectValue placeholder={t("Select grade")} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Grade 1-2">{t("Grade 1-2")}</SelectItem>
-                    <SelectItem value="Grade 3-4">{t("Grade 3-4")}</SelectItem>
-                    <SelectItem value="Grade 5">{t("Grade 5")}</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="game-grade-level">{t("Grade Level")}</Label>
+                    <Select onValueChange={setGameGradeLevel} value={gameGradeLevel}>
+                      <SelectTrigger id="game-grade-level"><SelectValue placeholder={t("Select grade")} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Grade 1-2">{t("Grade 1-2")}</SelectItem>
+                        <SelectItem value="Grade 3-4">{t("Grade 3-4")}</SelectItem>
+                        <SelectItem value="Grade 5">{t("Grade 5")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="game-type">{t("Game Type")}</Label>
+                    <Select onValueChange={(v) => setGameType(v as any)} value={gameType}>
+                      <SelectTrigger id="game-type"><SelectValue placeholder={t("Select type")} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="quiz">{t("Quiz")}</SelectItem>
+                        <SelectItem value="matching">{t("Matching Game")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
               </div>
               <Button className="w-full" onClick={handleGenerateGame} disabled={isGeneratingGame}>
                 {isGeneratingGame ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Gamepad2 className="mr-2 h-4 w-4" />}
@@ -558,7 +572,11 @@ export default function CreateContentPage() {
                 {generatedGame && (
                     <div className="space-y-2 text-sm">
                         <p className="font-bold">{generatedGame.title}</p>
-                        <p className="text-muted-foreground">{t("{{count}} questions generated.", { count: generatedGame.questions.length })}</p>
+                        <p className="text-muted-foreground">
+                            {t("Game Type: {{type}}", { type: generatedGame.gameType })} - 
+                            {generatedGame.gameType === 'quiz' && t(" {{count}} questions generated.", { count: generatedGame.questions.length })}
+                            {generatedGame.gameType === 'matching' && t(" {{count}} pairs generated.", { count: generatedGame.pairs.length })}
+                        </p>
                     </div>
                 )}
               </div>
