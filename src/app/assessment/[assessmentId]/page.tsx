@@ -33,6 +33,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 }
 
 export default function TakeAssessmentPage({ params }: { params: { assessmentId: string } }) {
+  const { assessmentId } = params;
   const router = useRouter()
   const { toast } = useToast()
   const { t } = useTranslation()
@@ -49,11 +50,11 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
   const audioChunksRef = useRef<Blob[]>([])
   
   useEffect(() => {
-    if (!db || !params.assessmentId) return;
+    if (!db || !assessmentId) return;
 
     const fetchPassage = async () => {
         setIsLoadingPassage(true);
-        const docRef = doc(db, "assessments", params.assessmentId);
+        const docRef = doc(db, "assessments", assessmentId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -76,7 +77,7 @@ export default function TakeAssessmentPage({ params }: { params: { assessmentId:
     };
 
     fetchPassage();
-  }, [db, params.assessmentId, toast, t, router]);
+  }, [db, assessmentId, toast, t, router]);
 
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ audio: true })
