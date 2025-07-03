@@ -1,30 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow anyone to query user data (for teacher code lookup),
-    // but a user can only create, update, or delete their own document.
+    // This rule is critical for student sign-up.
+    // It allows an unauthenticated user to query the 'users' collection
+    // to validate a teacher's code. Write access is still restricted.
     match /users/{userId} {
       allow read: if true;
-      allow create: if request.auth.uid == userId;
-      allow update, delete: if request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Assessments can be read by the teacher who created them or assigned students.
-    // Only the teacher can create, update, or delete them.
+    // Rules for other collections, requiring authentication.
     match /assessments/{assessmentId} {
-      allow read: if request.auth != null && (resource.data.teacherId == request.auth.uid || request.auth.uid in resource.data.assignedStudentIds);
-      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.teacherId;
+      allow read, write: if request.auth != null;
     }
-
-    // Submissions can be read by the student who submitted it or the teacher.
-    // Only the student can create a submission.
-    // Only the teacher can update it (e.g., with feedback).
     match /submissions/{submissionId} {
-      allow read: if request.auth != null && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.studentId;
-      allow update: if request.auth != null && request.auth.uid == resource.data.teacherId;
-      allow delete: if false; // Disallow deleting submissions for now.
+      allow read, write: if request.auth != null;
     }
   }
 }
