@@ -2,32 +2,37 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Users Collection:
-    // Allows anyone to read user data (needed to check teacher codes on signup).
-    // Restricts creating, updating, or deleting to the authenticated user for their own document.
+    
     match /users/{userId} {
+      // Allow anyone to read user data. This is needed for unauthenticated
+      // student sign-up to validate teacher codes.
+      // For a production app, this should be more secure, likely using a Cloud Function.
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow users to create their own document upon signing up.
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow users to update their own document after logging in.
+      allow update: if request.auth != null && request.auth.uid == userId;
+
+      // Prevent deletion of user documents.
+      allow delete: if false;
     }
 
-    // Assessments Collection:
-    // Teachers can create assessments.
-    // The creating teacher and assigned students can read them.
-    // Only the creating teacher can update or delete.
+    // Teachers can create and manage assessments. 
+    // Assigned students can read them.
     match /assessments/{assessmentId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null && (resource.data.teacherId == request.auth.uid || request.auth.uid in resource.data.assignedStudentIds);
-      allow update, delete: if request.auth != null && resource.data.teacherId == request.auth.uid;
+      allow read: if request.auth != null && (request.auth.uid == resource.data.teacherId || resource.data.assignedStudentIds.hasAny([request.auth.uid]));
+      allow create: if request.auth != null; // Teachers create these
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.teacherId;
     }
 
-    // Submissions Collection:
-    // Students can create submissions.
-    // The student who submitted and their teacher can read/update.
-    // Deleting is disallowed.
+    // Students create submissions. 
+    // The student who created it and their teacher can read/review it.
     match /submissions/{submissionId} {
-      allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
-      allow read, update: if request.auth != null && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
+      allow read: if request.auth != null && (request.auth.uid == resource.data.studentId || request.auth.uid == resource.data.teacherId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.studentId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.teacherId;
       allow delete: if false;
     }
   }
