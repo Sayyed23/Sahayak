@@ -14,7 +14,7 @@ import { db } from "@/lib/firebase"
 import { AnalyzeReadingAssessmentOutput } from "@/ai/flows/analyze-reading-assessment"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import React from "react"
 
 interface SubmissionReport {
@@ -25,7 +25,9 @@ interface SubmissionReport {
   audioUrl: string
 }
 
-export default function ReviewAssessmentPage({ params }: { params: { submissionId: string } }) {
+export default function ReviewAssessmentPage() {
+  const params = useParams()
+  const submissionId = params.submissionId as string
   const { t } = useTranslation()
   const { toast } = useToast()
   const router = useRouter()
@@ -41,11 +43,11 @@ export default function ReviewAssessmentPage({ params }: { params: { submissionI
   const [activeWordIndex, setActiveWordIndex] = useState(-1)
 
   useEffect(() => {
-    if (!db || !params.submissionId) return
+    if (!db || !submissionId) return
 
     const fetchSubmission = async () => {
       setIsLoading(true)
-      const submissionRef = doc(db, "submissions", params.submissionId)
+      const submissionRef = doc(db, "submissions", submissionId)
       const submissionSnap = await getDoc(submissionRef)
 
       if (submissionSnap.exists()) {
@@ -65,7 +67,7 @@ export default function ReviewAssessmentPage({ params }: { params: { submissionI
     }
 
     fetchSubmission()
-  }, [db, params.submissionId, t, toast, router])
+  }, [db, submissionId, t, toast, router])
   
   const handlePlayPause = () => {
     if (audioRef.current) {
@@ -128,7 +130,7 @@ export default function ReviewAssessmentPage({ params }: { params: { submissionI
         return;
     }
     setIsSubmittingFeedback(true);
-    const submissionRef = doc(db, "submissions", params.submissionId);
+    const submissionRef = doc(db, "submissions", submissionId);
     try {
         await updateDoc(submissionRef, {
             teacherFeedback: feedback,
