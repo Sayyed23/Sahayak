@@ -48,10 +48,6 @@ const studentSignUpSchema = loginSchema.extend({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   school: z.string().min(3, { message: "School name is required." }),
   grade: z.string().min(1, { message: "Grade is required." }),
-  teacherCode: z.string().optional().refine(
-    (code) => !code || code.length === 6,
-    { message: "Teacher code must be 6 characters if provided." }
-  ),
   language: z.string({ required_error: "Please select a language." }),
 })
 
@@ -82,7 +78,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
       name: "",
       school: "",
       language: undefined,
-      ...(role === "student" && { grade: "", teacherCode: "" }),
+      ...(role === "student" && { grade: "" }),
     },
   })
 
@@ -97,31 +93,8 @@ export function SignUpForm({ role }: SignUpFormProps) {
     }
 
     setIsLoading(true);
-    const teacherCodeValue = (values as any).teacherCode?.trim().toUpperCase();
 
     try {
-        let teacherId: string | null = null;
-
-        // For students, validate teacher code *if provided*.
-        if (role === 'student' && teacherCodeValue && teacherCodeValue.length > 0) {
-          // Query for the teacher code.
-          const q = query(collection(db, "users"), where("teacherCode", "==", teacherCodeValue));
-          const querySnapshot = await getDocs(q);
-          
-          const teacherDoc = querySnapshot.docs.find(doc => doc.data().role === 'teacher');
-
-          if (!teacherDoc) {
-            toast({
-              title: t("Invalid Teacher Code"),
-              description: t("The code entered was not found. Please check it, or sign up without a code."),
-              variant: "destructive",
-            });
-            setIsLoading(false);
-            return;
-          }
-          teacherId = teacherDoc.id; // Store the teacher's ID
-        }
-
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
         await updateProfile(user, { displayName: (values as any).name });
@@ -147,7 +120,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 school: studentValues.school,
                 language: studentValues.language,
                 grade: studentValues.grade,
-                teacherId: teacherId, // Can be null if no code was provided
+                teacherId: null, // No teacher assigned at signup
             };
             await setDoc(doc(db, "users", user.uid), studentData);
         }
@@ -225,26 +198,6 @@ export function SignUpForm({ role }: SignUpFormProps) {
                         <FormLabel>{t("Grade")}</FormLabel>
                         <FormControl>
                           <Input placeholder={t("e.g., 5th")} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="teacherCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("Teacher Code (Optional)")}</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder={t("Enter 6-character code if you have one")}
-                            {...field}
-                            maxLength={6}
-                            className="uppercase tracking-widest"
-                            autoCapitalize="characters"
-                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
