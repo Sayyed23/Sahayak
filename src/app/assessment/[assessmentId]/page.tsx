@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from '@/components/ui/button'
 import { Mic, Square, Loader2, AlertTriangle, Undo2 } from 'lucide-react'
@@ -32,8 +32,9 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     });
 }
 
-export default function TakeAssessmentPage({ params }: { params: { assessmentId: string } }) {
-  const { assessmentId } = params;
+export default function TakeAssessmentPage() {
+  const params = useParams();
+  const assessmentId = params.assessmentId as string;
   const router = useRouter()
   const { toast } = useToast()
   const { t } = useTranslation()
