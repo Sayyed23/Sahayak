@@ -19,7 +19,7 @@ const QuizQuestionSchema = z.object({
     explanation: z.string().describe("A brief explanation for why the correct answer is right."),
 });
 const QuizDataSchema = z.object({
-  gameType: z.literal('quiz'),
+  gameType: z.enum(['quiz']),
   title: z.string().describe("A creative and engaging title for the quiz."),
   questions: z.array(QuizQuestionSchema).min(5).describe("An array of at least 5 quiz questions.")
 });
@@ -30,7 +30,7 @@ const MatchingPairSchema = z.object({
   item2: z.string().describe("The second item in a pair to be matched (e.g., a definition, a capital city)."),
 });
 const MatchingDataSchema = z.object({
-    gameType: z.literal('matching'),
+    gameType: z.enum(['matching']),
     title: z.string().describe("A creative and engaging title for the matching game."),
     pairs: z.array(MatchingPairSchema).min(5).describe("An array of at least 5 pairs of items to be matched."),
     item1Title: z.string().describe("A title for the first column of items (e.g., 'Country')."),
