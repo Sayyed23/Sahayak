@@ -30,7 +30,7 @@ const getIconForType = (type: string) => {
             return <FileText className="h-6 w-6 text-primary" />;
         case 'Visual':
             return <ImageIcon className="h-6 w-6 text-primary" />;
-        case 'Quiz':
+        case 'Game':
             return <Gamepad2 className="h-6 w-6 text-primary" />;
         default:
             return <BookOpen className="h-6 w-6 text-primary" />;
@@ -94,7 +94,7 @@ export default function MyLessonsPage() {
             </>
           ) : lessons.length > 0 ? (
             lessons.map(lesson => {
-              const href = lesson.type === 'Quiz' ? `/play-quiz/${lesson.id}` : `/lesson/${lesson.id}`;
+              const href = lesson.type === 'Game' ? `/play-quiz/${lesson.id}` : `/lesson/${lesson.id}`;
               return (
                 <Link href={href} key={lesson.id} className="block">
                   <div className="flex items-center justify-between p-4 rounded-lg hover:bg-accent transition-colors cursor-pointer">
@@ -109,7 +109,7 @@ export default function MyLessonsPage() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="secondary" size="sm">{t(lesson.type === 'Quiz' ? 'Play' : 'View')}</Button>
+                    <Button variant="secondary" size="sm">{t(lesson.type === 'Game' ? 'Play Game' : 'View')}</Button>
                   </div>
                 </Link>
               )

@@ -3,13 +3,14 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { useAuth } from '@/hooks/use-auth'
 import { useTranslation } from '@/hooks/use-translation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Loader2, ArrowLeft, CheckCircle2, XCircle, Trophy, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { QuizData, QuizQuestion } from '@/ai/flows/generate-quiz'
+import type { GameData } from '@/ai/flows/generate-quiz'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
@@ -17,13 +18,15 @@ interface Assignment {
   contentId: string;
 }
 
-export default function PlayQuizPage() {
+export default function PlayGamePage() {
   const params = useParams()
   const router = useRouter()
-  const { t } = useTranslation()
   const assignmentId = params.assignmentId as string
   
-  const [quiz, setQuiz] = useState<QuizData | null>(null)
+  const { t } = useTranslation()
+  const { user } = useAuth()
+  
+  const [game, setGame] = useState<GameData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -35,7 +38,7 @@ export default function PlayQuizPage() {
   useEffect(() => {
     if (!assignmentId || !db) return
 
-    const fetchQuiz = async () => {
+    const fetchGame = async () => {
       setIsLoading(true)
       try {
         const assignmentRef = doc(db, 'assignments', assignmentId)
@@ -48,10 +51,10 @@ export default function PlayQuizPage() {
 
           if (contentSnap.exists()) {
             const contentData = contentSnap.data()
-            if (contentData.type === 'Quiz') {
-              setQuiz(JSON.parse(contentData.content))
+            if (contentData.type === 'Game') {
+              setGame(JSON.parse(contentData.content))
             } else {
-                throw new Error("Content is not a quiz")
+                throw new Error("Content is not a game")
             }
           } else {
              throw new Error("Content not found")
@@ -60,27 +63,48 @@ export default function PlayQuizPage() {
             throw new Error("Assignment not found")
         }
       } catch (error) {
-        console.error("Error fetching quiz:", error)
+        console.error("Error fetching game:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchQuiz()
+    fetchGame()
   }, [assignmentId])
+
+  useEffect(() => {
+    if (isFinished && user && game && db) {
+      const saveSession = async () => {
+        try {
+          await addDoc(collection(db, "game_sessions"), {
+            studentId: user.uid,
+            assignmentId: assignmentId,
+            gameTitle: game.title,
+            score: score,
+            totalQuestions: game.questions.length,
+            completedAt: serverTimestamp(),
+          });
+        } catch (error) {
+          console.error("Failed to save game session", error);
+          // Not showing a toast to the user to avoid disruption
+        }
+      };
+      saveSession();
+    }
+  }, [isFinished, user, game, db, assignmentId, score]);
 
   const handleAnswerSubmit = () => {
     if (selectedAnswer === null) return
     
     setIsAnswered(true)
-    const currentQuestion = quiz!.questions[currentQuestionIndex]
+    const currentQuestion = game!.questions[currentQuestionIndex]
     if (selectedAnswer === currentQuestion.correctAnswerIndex) {
       setScore(prev => prev + 1)
     }
   }
 
   const handleNextQuestion = () => {
-    if (currentQuestionIndex < quiz!.questions.length - 1) {
+    if (currentQuestionIndex < game!.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1)
       setSelectedAnswer(null)
       setIsAnswered(false)
@@ -89,7 +113,7 @@ export default function PlayQuizPage() {
     }
   }
 
-  const handleRestartQuiz = () => {
+  const handleRestartGame = () => {
     setCurrentQuestionIndex(0)
     setSelectedAnswer(null)
     setIsAnswered(false)
@@ -105,11 +129,11 @@ export default function PlayQuizPage() {
     )
   }
 
-  if (!quiz) {
+  if (!game) {
     return (
       <div className="flex h-screen items-center justify-center text-center">
         <div>
-          <h2 className="text-2xl font-bold">{t("Quiz Not Found")}</h2>
+          <h2 className="text-2xl font-bold">{t("Game Not Found")}</h2>
           <Button onClick={() => router.back()} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" /> {t("Go Back")}
           </Button>
@@ -118,7 +142,7 @@ export default function PlayQuizPage() {
     )
   }
 
-  const currentQuestion = quiz.questions[currentQuestionIndex]
+  const currentQuestion = game.questions[currentQuestionIndex]
 
   if (isFinished) {
     return (
@@ -128,13 +152,13 @@ export default function PlayQuizPage() {
                     <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
                         <Trophy className="h-12 w-12 text-primary" />
                     </div>
-                    <CardTitle className="font-headline text-3xl">{t("Quiz Complete!")}</CardTitle>
-                    <CardDescription>{t("You've completed the '{{title}}' quiz.", { title: quiz.title })}</CardDescription>
+                    <CardTitle className="font-headline text-3xl">{t("Game Complete!")}</CardTitle>
+                    <CardDescription>{t("You've completed the '{{title}}' game.", { title: game.title })}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <p className="text-2xl font-bold">{t("Your Score")}: {score} / {quiz.questions.length}</p>
+                    <p className="text-2xl font-bold">{t("Your Score")}: {score} / {game.questions.length}</p>
                     <div className="flex gap-4 justify-center">
-                        <Button onClick={handleRestartQuiz}>
+                        <Button onClick={handleRestartGame}>
                            <RotateCcw className="mr-2 h-4 w-4" /> {t("Play Again")}
                         </Button>
                         <Button variant="outline" onClick={() => router.push('/dashboard/student/my-lessons')}>
@@ -151,9 +175,9 @@ export default function PlayQuizPage() {
     <div className="p-4 md:p-8 max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-2xl md:text-3xl">{t(quiz.title)}</CardTitle>
-          <CardDescription>{t("Question {{current}} of {{total}}", { current: currentQuestionIndex + 1, total: quiz.questions.length})}</CardDescription>
-          <Progress value={((currentQuestionIndex + 1) / quiz.questions.length) * 100} className="mt-2" />
+          <CardTitle className="font-headline text-2xl md:text-3xl">{t(game.title)}</CardTitle>
+          <CardDescription>{t("Question {{current}} of {{total}}", { current: currentQuestionIndex + 1, total: game.questions.length})}</CardDescription>
+          <Progress value={((currentQuestionIndex + 1) / game.questions.length) * 100} className="mt-2" />
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-lg font-semibold">{t(currentQuestion.questionText)}</p>
@@ -192,7 +216,7 @@ export default function PlayQuizPage() {
           <div className="flex justify-end">
             {isAnswered ? (
                 <Button onClick={handleNextQuestion}>
-                    {currentQuestionIndex < quiz.questions.length - 1 ? t("Next Question") : t("Finish Quiz")}
+                    {currentQuestionIndex < game.questions.length - 1 ? t("Next Question") : t("Finish Game")}
                 </Button>
             ) : (
                 <Button onClick={handleAnswerSubmit} disabled={selectedAnswer === null}>

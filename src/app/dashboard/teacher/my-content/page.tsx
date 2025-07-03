@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast"
 interface Content {
   id: string
   title: string
-  type: 'Story' | 'Explanation' | 'Worksheet' | 'Visual' | 'Quiz'
+  type: 'Story' | 'Explanation' | 'Worksheet' | 'Visual' | 'Game'
   date: string
   content: string; // Will be text or a data URI for images
   createdAt: any
@@ -145,7 +145,7 @@ export default function MyContentPage() {
   const stories = content.filter(c => c.type === 'Story' || c.type === 'Explanation')
   const worksheets = content.filter(c => c.type === 'Worksheet')
   const visuals = content.filter(c => c.type === 'Visual')
-  const quizzes = content.filter(c => c.type === 'Quiz')
+  const games = content.filter(c => c.type === 'Game')
 
   return (
     <div className="space-y-6">
@@ -164,7 +164,7 @@ export default function MyContentPage() {
           <TabsTrigger value="stories">{t("Stories & Explanations")}</TabsTrigger>
           <TabsTrigger value="worksheets">{t("Worksheets")}</TabsTrigger>
           <TabsTrigger value="visuals">{t("Visual Aids")}</TabsTrigger>
-          <TabsTrigger value="quizzes">{t("Quizzes")}</TabsTrigger>
+          <TabsTrigger value="games">{t("Games")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stories">
@@ -200,13 +200,13 @@ export default function MyContentPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="quizzes">
+        <TabsContent value="games">
             <Card>
-                <CardHeader><CardTitle>{t("Saved Quizzes")}</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{t("Saved Games")}</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
-                {isLoading ? <Skeleton className="h-20 w-full" /> : quizzes.length > 0 ? (
-                    quizzes.map(item => <ContentListItem key={item.id} item={item} onAssign={() => openAssignDialog(item)} onDelete={() => handleDelete(item.id)} />)
-                ) : <p className="text-muted-foreground text-center p-4">{t("No quizzes saved yet.")}</p>}
+                {isLoading ? <Skeleton className="h-20 w-full" /> : games.length > 0 ? (
+                    games.map(item => <ContentListItem key={item.id} item={item} onAssign={() => openAssignDialog(item)} onDelete={() => handleDelete(item.id)} />)
+                ) : <p className="text-muted-foreground text-center p-4">{t("No games saved yet.")}</p>}
                 </CardContent>
             </Card>
         </TabsContent>

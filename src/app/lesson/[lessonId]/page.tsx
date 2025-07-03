@@ -21,7 +21,7 @@ interface Assignment {
 
 interface Content {
   title: string;
-  type: 'Story' | 'Explanation' | 'Worksheet' | 'Visual' | 'Quiz';
+  type: 'Story' | 'Explanation' | 'Worksheet' | 'Visual' | 'Game';
   content: string;
 }
 
@@ -48,8 +48,8 @@ export default function LessonViewerPage() {
           const assignmentData = assignmentSnap.data() as Assignment
           setAssignment(assignmentData)
 
-          // If it's a quiz, redirect to the quiz player
-          if (assignmentData.contentType === 'Quiz') {
+          // If it's a game, redirect to the game player
+          if (assignmentData.contentType === 'Game') {
             router.replace(`/play-quiz/${lessonId}`);
             return;
           }
