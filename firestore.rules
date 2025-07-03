@@ -1,27 +1,30 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User documents. Public read is needed for student sign-up to validate teacher codes.
-    // Writes are restricted to the owner of the document.
+    // Allow anyone to query user data (for teacher code lookup),
+    // but a user can only create, update, or delete their own document.
     match /users/{userId} {
       allow read: if true;
-      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+      allow update, delete: if request.auth.uid == userId;
     }
 
-    // Assessments can be managed by teachers. All authenticated users can read them.
+    // Assessments can be read by the teacher who created them or assigned students.
+    // Only the teacher can create, update, or delete them.
     match /assessments/{assessmentId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      allow read: if request.auth != null && (resource.data.teacherId == request.auth.uid || request.auth.uid in resource.data.assignedStudentIds);
+      allow create, update, delete: if request.auth != null && request.auth.uid == request.resource.data.teacherId;
     }
 
-    // Students can create submissions. Teachers can read and update them. The student who made it can also read it.
+    // Submissions can be read by the student who submitted it or the teacher.
+    // Only the student can create a submission.
+    // Only the teacher can update it (e.g., with feedback).
     match /submissions/{submissionId} {
-      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
-      allow read, update: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' || request.auth.uid == resource.data.studentId);
-      // Only teachers can delete submissions
-      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      allow read: if request.auth != null && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.studentId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.teacherId;
+      allow delete: if false; // Disallow deleting submissions for now.
     }
   }
 }
