@@ -2,7 +2,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookOpen, BookText, Image as ImageIcon, FileText } from "lucide-react"
+import { BookOpen, BookText, Image as ImageIcon, FileText, Gamepad2 } from "lucide-react"
 import { useTranslation } from "@/hooks/use-translation"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
@@ -30,6 +30,8 @@ const getIconForType = (type: string) => {
             return <FileText className="h-6 w-6 text-primary" />;
         case 'Visual':
             return <ImageIcon className="h-6 w-6 text-primary" />;
+        case 'Quiz':
+            return <Gamepad2 className="h-6 w-6 text-primary" />;
         default:
             return <BookOpen className="h-6 w-6 text-primary" />;
     }
@@ -91,24 +93,27 @@ export default function MyLessonsPage() {
               <Skeleton className="h-16 w-full" />
             </>
           ) : lessons.length > 0 ? (
-            lessons.map(lesson => (
-              <Link href={`/lesson/${lesson.id}`} key={lesson.id} className="block">
-                <div className="flex items-center justify-between p-4 rounded-lg hover:bg-accent transition-colors cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-primary/10 p-2 rounded-lg">
-                      {getIconForType(lesson.type)}
+            lessons.map(lesson => {
+              const href = lesson.type === 'Quiz' ? `/play-quiz/${lesson.id}` : `/lesson/${lesson.id}`;
+              return (
+                <Link href={href} key={lesson.id} className="block">
+                  <div className="flex items-center justify-between p-4 rounded-lg hover:bg-accent transition-colors cursor-pointer">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        {getIconForType(lesson.type)}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{lesson.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {t(lesson.type)} - {t("Assigned {{date}}", { date: lesson.assignedAt })}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold">{lesson.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {t(lesson.type)} - {t("Assigned {{date}}", { date: lesson.assignedAt })}
-                      </p>
-                    </div>
+                    <Button variant="secondary" size="sm">{t(lesson.type === 'Quiz' ? 'Play' : 'View')}</Button>
                   </div>
-                  <Button variant="secondary" size="sm">{t("View")}</Button>
-                </div>
-              </Link>
-            ))
+                </Link>
+              )
+            })
           ) : (
             <div className="flex flex-col items-center justify-center text-center p-8">
               <div className="mx-auto bg-primary/10 p-3 rounded-full mb-4">

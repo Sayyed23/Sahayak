@@ -21,7 +21,7 @@ interface Assignment {
 
 interface Content {
   title: string;
-  type: 'Story' | 'Explanation' | 'Worksheet' | 'Visual';
+  type: 'Story' | 'Explanation' | 'Worksheet' | 'Visual' | 'Quiz';
   content: string;
 }
 
@@ -48,6 +48,12 @@ export default function LessonViewerPage() {
           const assignmentData = assignmentSnap.data() as Assignment
           setAssignment(assignmentData)
 
+          // If it's a quiz, redirect to the quiz player
+          if (assignmentData.contentType === 'Quiz') {
+            router.replace(`/play-quiz/${lessonId}`);
+            return;
+          }
+
           const contentRef = doc(db, 'content', assignmentData.contentId)
           const contentSnap = await getDoc(contentRef)
 
@@ -67,7 +73,7 @@ export default function LessonViewerPage() {
     }
 
     fetchLesson()
-  }, [lessonId])
+  }, [lessonId, router])
 
   if (isLoading) {
     return (

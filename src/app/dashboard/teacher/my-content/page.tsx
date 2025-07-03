@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MoreHorizontal, Search, Trash2, Edit, Send, Loader2 } from "lucide-react"
+import { MoreHorizontal, Search, Trash2, Edit, Send, Loader2, Gamepad2 } from "lucide-react"
 import Image from "next/image"
 import { useTranslation } from "@/hooks/use-translation"
 import { useState, useEffect } from "react"
@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast"
 interface Content {
   id: string
   title: string
-  type: 'Story' | 'Explanation' | 'Worksheet' | 'Visual'
+  type: 'Story' | 'Explanation' | 'Worksheet' | 'Visual' | 'Quiz'
   date: string
   content: string; // Will be text or a data URI for images
   createdAt: any
@@ -145,6 +145,7 @@ export default function MyContentPage() {
   const stories = content.filter(c => c.type === 'Story' || c.type === 'Explanation')
   const worksheets = content.filter(c => c.type === 'Worksheet')
   const visuals = content.filter(c => c.type === 'Visual')
+  const quizzes = content.filter(c => c.type === 'Quiz')
 
   return (
     <div className="space-y-6">
@@ -159,10 +160,11 @@ export default function MyContentPage() {
       </div>
 
       <Tabs defaultValue="stories" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="stories">{t("Stories & Explanations")}</TabsTrigger>
-          <TabsTrigger value="worksheets">{t("Generated Worksheets")}</TabsTrigger>
-          <TabsTrigger value="visuals">{t("Saved Visual Aids")}</TabsTrigger>
+          <TabsTrigger value="worksheets">{t("Worksheets")}</TabsTrigger>
+          <TabsTrigger value="visuals">{t("Visual Aids")}</TabsTrigger>
+          <TabsTrigger value="quizzes">{t("Quizzes")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stories">
@@ -197,6 +199,18 @@ export default function MyContentPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="quizzes">
+            <Card>
+                <CardHeader><CardTitle>{t("Saved Quizzes")}</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                {isLoading ? <Skeleton className="h-20 w-full" /> : quizzes.length > 0 ? (
+                    quizzes.map(item => <ContentListItem key={item.id} item={item} onAssign={() => openAssignDialog(item)} onDelete={() => handleDelete(item.id)} />)
+                ) : <p className="text-muted-foreground text-center p-4">{t("No quizzes saved yet.")}</p>}
+                </CardContent>
+            </Card>
+        </TabsContent>
+
       </Tabs>
 
       {/* Assign Dialog */}

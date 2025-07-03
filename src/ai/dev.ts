@@ -9,3 +9,5 @@ import '@/ai/flows/generate-worksheet.ts';
 import '@/ai/flows/generate-reading-passage.ts';
 import '@/ai/flows/analyze-reading-assessment.ts';
 import '@/ai/flows/translate-text.ts';
+import '@/ai/flows/generate-quiz.ts';
+

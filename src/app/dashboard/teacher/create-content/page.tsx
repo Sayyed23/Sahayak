@@ -8,13 +8,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Mic, UploadCloud, Image as ImageIcon, Wand2, Save, Printer, FileAudio, Download, RefreshCw, Loader2, X } from "lucide-react"
+import { Mic, UploadCloud, Image as ImageIcon, Wand2, Save, Printer, FileAudio, Download, RefreshCw, Loader2, X, Gamepad2 } from "lucide-react"
 import Image from "next/image"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { generateHyperLocalContent } from "@/ai/flows/generate-hyper-local-content"
 import { designVisualAid } from "@/ai/flows/design-visual-aid"
 import { extractTextFromImage, generateWorksheet } from "@/ai/flows/generate-worksheet"
+import { generateQuiz, QuizData } from "@/ai/flows/generate-quiz"
 import { Skeleton } from "@/components/ui/skeleton"
 import { marked } from "marked"
 import { useTranslation } from "@/hooks/use-translation"
@@ -50,6 +51,13 @@ export default function CreateContentPage() {
   const [generatedWorksheet, setGeneratedWorksheet] = useState("")
   const [isGeneratingWorksheet, setIsGeneratingWorksheet] = useState(false)
   const [isSavingWorksheet, setIsSavingWorksheet] = useState(false)
+
+  // State for Quiz Generator
+  const [quizTopic, setQuizTopic] = useState("")
+  const [quizGradeLevel, setQuizGradeLevel] = useState("")
+  const [generatedQuiz, setGeneratedQuiz] = useState<QuizData | null>(null)
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false)
+  const [isSavingQuiz, setIsSavingQuiz] = useState(false)
   
   const handleGenerateContent = async () => {
     if (!contentText || !contentType) {
@@ -232,6 +240,56 @@ export default function CreateContentPage() {
     }
   }
 
+  const handleGenerateQuiz = async () => {
+    if (!quizTopic || !quizGradeLevel) {
+        toast({
+            title: t("Missing Information"),
+            description: t("Please enter a topic and select a grade level."),
+            variant: "destructive",
+        });
+        return;
+    }
+    setIsGeneratingQuiz(true);
+    setGeneratedQuiz(null);
+    try {
+        const result = await generateQuiz({
+            topic: quizTopic,
+            gradeLevel: quizGradeLevel,
+        });
+        setGeneratedQuiz(result);
+    } catch (error) {
+        console.error(error);
+        toast({
+            title: t("Error Generating Quiz"),
+            description: t("Something went wrong. Please try again. You may need to add your Gemini API key."),
+            variant: "destructive",
+        });
+    } finally {
+        setIsGeneratingQuiz(false);
+    }
+  };
+
+  const handleSaveQuiz = async () => {
+    if (!generatedQuiz || !user || !db) return;
+    setIsSavingQuiz(true);
+    try {
+        await addDoc(collection(db, "content"), {
+            teacherId: user.uid,
+            type: 'Quiz',
+            title: generatedQuiz.title,
+            content: JSON.stringify(generatedQuiz), // Store quiz config as a JSON string
+            createdAt: serverTimestamp(),
+        });
+        toast({ title: t("Quiz Saved!"), description: t("You can now assign it from 'My Content'.")});
+    } catch (error) {
+        console.error("Error saving quiz:", error);
+        toast({ title: t("Error"), description: t("Failed to save quiz."), variant: "destructive"});
+    } finally {
+        setIsSavingQuiz(false);
+    }
+  };
+
+
   return (
     <div className="space-y-6">
        <div>
@@ -239,10 +297,11 @@ export default function CreateContentPage() {
         <p className="text-muted-foreground">{t("Your creative toolkit for the classroom.")}</p>
       </div>
       <Tabs defaultValue="hyper-local" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="hyper-local">{t("Hyper-Local Content")}</TabsTrigger>
           <TabsTrigger value="differentiated">{t("Differentiated Materials")}</TabsTrigger>
           <TabsTrigger value="visual-aid">{t("Visual Aid Designer")}</TabsTrigger>
+          <TabsTrigger value="quiz-generator">{t("Quiz Generator")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="hyper-local">
@@ -456,6 +515,63 @@ export default function CreateContentPage() {
                 </CardFooter>
             </Card>
         </TabsContent>
+
+        <TabsContent value="quiz-generator">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Quiz Generator")}</CardTitle>
+              <CardDescription>{t("Create an interactive quiz for your students on any topic.")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="quiz-topic">{t("Quiz Topic")}</Label>
+                <Input 
+                  id="quiz-topic" 
+                  placeholder={t("e.g., The Solar System, Indian History, Basic Math")}
+                  value={quizTopic}
+                  onChange={(e) => setQuizTopic(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quiz-grade-level">{t("Grade Level")}</Label>
+                <Select onValueChange={setQuizGradeLevel} value={quizGradeLevel}>
+                  <SelectTrigger id="quiz-grade-level"><SelectValue placeholder={t("Select grade")} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Grade 1-2">{t("Grade 1-2")}</SelectItem>
+                    <SelectItem value="Grade 3-4">{t("Grade 3-4")}</SelectItem>
+                    <SelectItem value="Grade 5">{t("Grade 5")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button className="w-full" onClick={handleGenerateQuiz} disabled={isGeneratingQuiz}>
+                {isGeneratingQuiz ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Gamepad2 className="mr-2 h-4 w-4" />}
+                {isGeneratingQuiz ? t("Generating Quiz...") : t("Generate Quiz")}
+              </Button>
+            </CardContent>
+            <CardFooter className="flex flex-col items-start space-y-4">
+              <Label>{t("Generated Quiz Preview")}</Label>
+              <div className="w-full p-4 border rounded-md bg-muted/50 min-h-[150px]">
+                {isGeneratingQuiz && <Skeleton className="h-24 w-full" />}
+                {!isGeneratingQuiz && !generatedQuiz && (
+                    <p className="text-sm text-muted-foreground">{t("Your generated quiz will appear here...")}</p>
+                )}
+                {generatedQuiz && (
+                    <div className="space-y-2 text-sm">
+                        <p className="font-bold">{generatedQuiz.title}</p>
+                        <p className="text-muted-foreground">{t("{{count}} questions generated.", { count: generatedQuiz.questions.length })}</p>
+                    </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleSaveQuiz} disabled={!generatedQuiz || isSavingQuiz}>
+                    {isSavingQuiz ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
+                    {t("Save Quiz")}
+                  </Button>
+              </div>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
       </Tabs>
     </div>
   )
