@@ -29,6 +29,7 @@ interface PendingReview {
     studentName: string;
     passageTitle: string;
     submissionDate: string;
+    submittedAt: Date;
 }
 
 export default function AssessmentsPage() {
@@ -43,21 +44,23 @@ export default function AssessmentsPage() {
     if (!db || !user) return
 
     setIsLoadingStudents(true)
-    const studentsQuery = query(collection(db, "users"), where("teacherId", "==", user.uid))
+    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
     const unsubscribeStudents = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
       let isBoy = true;
       querySnapshot.forEach((doc) => {
-        studentsData.push({
-          id: doc.id,
-          name: doc.data().name,
-          // TODO: This should come from an aggregation of assessments for this student
-          status: "N/A",
-          score: "N/A",
-          avatar: "https://placehold.co/100x100.png",
-          hint: isBoy ? "boy portrait" : "girl portrait",
-        })
-        isBoy = !isBoy
+        if (doc.data().name) {
+            studentsData.push({
+              id: doc.id,
+              name: doc.data().name,
+              // TODO: This should come from an aggregation of assessments for this student
+              status: "N/A",
+              score: "N/A",
+              avatar: "https://placehold.co/100x100.png",
+              hint: isBoy ? "boy portrait" : "girl portrait",
+            })
+            isBoy = !isBoy
+        }
       })
       setStudents(studentsData)
       setIsLoadingStudents(false)
@@ -158,7 +161,7 @@ export default function AssessmentsPage() {
               </div>
             ))
           ) : (
-             <p className="text-sm text-muted-foreground text-center p-4">{t("No students have signed up yet. New students will appear here after using your code.")}</p>
+             <p className="text-sm text-muted-foreground text-center p-4">{t("No students have signed up yet. New students will appear here once they create an account.")}</p>
           )}
         </CardContent>
       </Card>
