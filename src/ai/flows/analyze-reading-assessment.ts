@@ -12,24 +12,25 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const ReadingErrorSchema = z.object({
-    word: z.string().describe("The word that was read incorrectly or the context word for an omission/insertion."),
-    errorType: z.enum(["mispronunciation", "omission", "insertion", "substitution"]).describe("The type of reading error."),
-    expected: z.string().optional().describe("The expected word or pronunciation."),
-    actual: z.string().optional().describe("What the student actually said."),
-});
-
 const AnalyzeReadingAssessmentInputSchema = z.object({
   passageText: z.string().describe('The original text of the reading passage.'),
   audioDataUri: z.string().describe("The student's audio recording, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type AnalyzeReadingAssessmentInput = z.infer<typeof AnalyzeReadingAssessmentInputSchema>;
 
+
+const WordAnalysisSchema = z.object({
+  word: z.string().describe("The word from the passage, or the inserted word."),
+  status: z.enum(["correct", "mispronunciation", "omission", "insertion", "substitution"]).describe("The analysis of how the word was read."),
+  startTime: z.number().optional().describe("The start time in seconds if the word was spoken. Not present for omissions."),
+  endTime: z.number().optional().describe("The end time in seconds if the word was spoken. Not present for omissions."),
+  spokenWord: z.string().optional().describe("The word that was actually spoken by the student, e.g., for substitutions or mispronunciations.")
+});
+
 const AnalyzeReadingAssessmentOutputSchema = z.object({
   fluencyWPM: z.number().describe("The student's reading fluency in words per minute."),
   accuracyPercentage: z.number().describe("The student's pronunciation accuracy as a percentage."),
-  gradedText: z.string().describe("The original passage with errors marked up using Markdown. Use **word** for mispronunciation/substitution, ~~word~~ for omission, and *word* for insertion."),
-  errors: z.array(ReadingErrorSchema).describe("A detailed list of all identified reading errors."),
+  analysis: z.array(WordAnalysisSchema).describe("A detailed, word-by-word analysis of the reading performance, including timestamps for spoken words and error classifications. The array should follow the sequence of the original passage, with insertions placed at the appropriate positions."),
 });
 export type AnalyzeReadingAssessmentOutput = z.infer<typeof AnalyzeReadingAssessmentOutputSchema>;
 
@@ -41,7 +42,7 @@ const prompt = ai.definePrompt({
   name: 'analyzeReadingAssessmentPrompt',
   input: {schema: AnalyzeReadingAssessmentInputSchema},
   output: {schema: AnalyzeReadingAssessmentOutputSchema},
-  prompt: `You are an expert English reading teacher and assessment analyst. You will be given a passage of text and an audio recording of a student reading that passage. Your task is to analyze the student's reading performance and provide a detailed report.
+  prompt: `You are an expert English reading teacher and assessment analyst. You will be given a passage of text and an audio recording of a student reading that passage. Your task is to provide a detailed, word-by-word analysis of the student's reading performance.
 
   Passage Text:
   ---
@@ -51,20 +52,20 @@ const prompt = ai.definePrompt({
   Audio Recording:
   {{media url=audioDataUri}}
 
-  Please perform the following analysis:
-  1.  **Fluency:** Calculate the student's reading fluency in Words Per Minute (WPM).
-  2.  **Accuracy:** Calculate the pronunciation accuracy as a percentage.
-  3.  **Error Analysis:** Identify every reading error. The types of errors to look for are:
-      - **mispronunciation:** A word that is pronounced incorrectly.
-      - **omission:** A word from the passage that the student skipped.
-      - **insertion:** A word spoken by the student that was not in the original passage.
-      - **substitution:** A word from the passage that was replaced by a different word.
-  4.  **Graded Text:** Provide the full original passage as a single string, but with all errors marked up using simple Markdown:
-      - For mispronunciations and substitutions, wrap the incorrect word in **bold**.
-      - For omissions, wrap the skipped word in ~~strikethrough~~.
-      - For insertions, add the extra word and wrap it in *italics*.
+  Please perform the following analysis and return it in the specified JSON format:
+  1.  **Word-by-Word Analysis:** Go through the original passage word by word and compare it to the student's audio. For each word, determine its status:
+      - **correct:** The word was read correctly.
+      - **mispronunciation:** The word was read, but pronounced incorrectly.
+      - **substitution:** The word was replaced by a different word.
+      - **omission:** The word was skipped entirely.
+      - **insertion:** The student added a word that was not in the text.
+  2.  **Timestamps:** For every word that was actually spoken (including correct words, mispronunciations, substitutions, and insertions), provide its start and end time in seconds from the beginning of the audio. Omitted words will not have timestamps.
+  3.  **Spoken Word:** For substitutions and mispronunciations, provide the actual word the student said in the 'spokenWord' field.
+  4.  **Overall Metrics:**
+      - Calculate the student's reading fluency in Words Per Minute (WPM).
+      - Calculate the pronunciation accuracy as a percentage.
 
-  Return your analysis in the specified JSON output format. Be precise and thorough.`,
+  The final output should be a JSON object containing the fluency, accuracy, and an 'analysis' array. This array must contain an object for each word in the original passage, in order, with insertions added at the points they occurred. Be precise and thorough.`,
 });
 
 
