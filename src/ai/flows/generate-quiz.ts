@@ -5,24 +5,26 @@
  *
  * - generateQuiz - A function that generates a quiz configuration.
  * - GenerateQuizInput - The input type for the generateQuiz function.
- * - QuizDataSchema - The schema for the generated quiz data.
+ * - QuizData - The type for the generated quiz data.
+ * - QuizQuestion - The type for a single quiz question.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const QuizQuestionSchema = z.object({
+const QuizQuestionSchema = z.object({
     questionText: z.string().describe("The text of the quiz question."),
     options: z.array(z.string()).length(4).describe("An array of 4 possible answers."),
     correctAnswerIndex: z.number().min(0).max(3).describe("The 0-based index of the correct answer in the options array."),
     explanation: z.string().describe("A brief explanation for why the correct answer is right."),
 });
+export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;
 
-export const QuizDataSchema = z.object({
+
+const QuizDataSchema = z.object({
   title: z.string().describe("A creative and engaging title for the quiz."),
   questions: z.array(QuizQuestionSchema).min(5).describe("An array of at least 5 quiz questions.")
 });
-
 export type QuizData = z.infer<typeof QuizDataSchema>;
 
 const GenerateQuizInputSchema = z.object({
