@@ -111,10 +111,14 @@ export function SignUpForm({ role }: SignUpFormProps) {
             setIsLoading(false);
             return;
           }
-          const q = query(collection(db, "users"), where("teacherCode", "==", teacherCodeValue), where("role", "==","teacher"));
+          // Query for the teacher code. This does not require a composite index.
+          const q = query(collection(db, "users"), where("teacherCode", "==", teacherCodeValue));
           const querySnapshot = await getDocs(q);
+          
+          // Find the document that is actually a teacher.
+          const teacherDoc = querySnapshot.docs.find(doc => doc.data().role === 'teacher');
 
-          if (querySnapshot.empty) {
+          if (!teacherDoc) {
             toast({
               title: t("Invalid Teacher Code"),
               description: t("No teacher found with that code. Please check and try again."),
@@ -123,7 +127,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
             setIsLoading(false);
             return;
           }
-          teacherId = querySnapshot.docs[0].id; // Store the teacher's ID
+          teacherId = teacherDoc.id; // Store the teacher's ID
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
