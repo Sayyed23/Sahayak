@@ -48,8 +48,10 @@ const studentSignUpSchema = loginSchema.extend({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   school: z.string().min(3, { message: "School name is required." }),
   grade: z.string().min(1, { message: "Grade is required." }),
-  teacherCode: z.string()
-    .length(6, { message: "Teacher code must be exactly 6 characters." }),
+  teacherCode: z.string().optional().refine(
+    (code) => !code || code.length === 6,
+    { message: "Teacher code must be 6 characters if provided." }
+  ),
   language: z.string({ required_error: "Please select a language." }),
 })
 
@@ -95,33 +97,23 @@ export function SignUpForm({ role }: SignUpFormProps) {
     }
 
     setIsLoading(true);
-    const teacherCodeValue = (values as any).teacherCode?.toUpperCase();
+    const teacherCodeValue = (values as any).teacherCode?.trim().toUpperCase();
 
     try {
         let teacherId: string | null = null;
 
-        // For students, validate teacher code *before* creating the auth user.
-        if (role === 'student') {
-          if (!teacherCodeValue) {
-            toast({
-              title: t("Teacher Code Required"),
-              description: t("Please enter your teacher's 6-character code."),
-              variant: "destructive",
-            });
-            setIsLoading(false);
-            return;
-          }
-          // Query for the teacher code. This does not require a composite index.
+        // For students, validate teacher code *if provided*.
+        if (role === 'student' && teacherCodeValue && teacherCodeValue.length > 0) {
+          // Query for the teacher code.
           const q = query(collection(db, "users"), where("teacherCode", "==", teacherCodeValue));
           const querySnapshot = await getDocs(q);
           
-          // Find the document that is actually a teacher.
           const teacherDoc = querySnapshot.docs.find(doc => doc.data().role === 'teacher');
 
           if (!teacherDoc) {
             toast({
               title: t("Invalid Teacher Code"),
-              description: t("No teacher found with that code. Please check and try again."),
+              description: t("The code entered was not found. Please check it, or sign up without a code."),
               variant: "destructive",
             });
             setIsLoading(false);
@@ -155,7 +147,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 school: studentValues.school,
                 language: studentValues.language,
                 grade: studentValues.grade,
-                teacherId: teacherId!, // Use the stored ID.
+                teacherId: teacherId, // Can be null if no code was provided
             };
             await setDoc(doc(db, "users", user.uid), studentData);
         }
@@ -243,10 +235,10 @@ export function SignUpForm({ role }: SignUpFormProps) {
                     name="teacherCode"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("Teacher Code")}</FormLabel>
+                        <FormLabel>{t("Teacher Code (Optional)")}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t("Enter the 6-character code")}
+                            placeholder={t("Enter 6-character code if you have one")}
                             {...field}
                             maxLength={6}
                             className="uppercase tracking-widest"
