@@ -19,13 +19,13 @@ const ReadingErrorSchema = z.object({
     actual: z.string().optional().describe("What the student actually said."),
 });
 
-export const AnalyzeReadingAssessmentInputSchema = z.object({
+const AnalyzeReadingAssessmentInputSchema = z.object({
   passageText: z.string().describe('The original text of the reading passage.'),
   audioDataUri: z.string().describe("The student's audio recording, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type AnalyzeReadingAssessmentInput = z.infer<typeof AnalyzeReadingAssessmentInputSchema>;
 
-export const AnalyzeReadingAssessmentOutputSchema = z.object({
+const AnalyzeReadingAssessmentOutputSchema = z.object({
   fluencyWPM: z.number().describe("The student's reading fluency in words per minute."),
   accuracyPercentage: z.number().describe("The student's pronunciation accuracy as a percentage."),
   gradedText: z.string().describe("The original passage with errors marked up using Markdown. Use **word** for mispronunciation/substitution, ~~word~~ for omission, and *word* for insertion."),
