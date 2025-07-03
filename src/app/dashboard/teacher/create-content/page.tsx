@@ -18,22 +18,28 @@ import { extractTextFromImage, generateWorksheet } from "@/ai/flows/generate-wor
 import { Skeleton } from "@/components/ui/skeleton"
 import { marked } from "marked"
 import { useTranslation } from "@/hooks/use-translation"
+import { useAuth } from "@/hooks/use-auth"
+import { db } from "@/lib/firebase"
+import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 
 export default function CreateContentPage() {
   const { toast } = useToast()
   const { t, language } = useTranslation()
+  const { user } = useAuth()
 
   // State for Hyper-Local Content
   const [contentText, setContentText] = useState("")
   const [contentType, setContentType] = useState("")
   const [generatedContent, setGeneratedContent] = useState("")
   const [isGeneratingContent, setIsGeneratingContent] = useState(false)
+  const [isSavingContent, setIsSavingContent] = useState(false)
 
   // State for Visual Aid Designer
   const [visualDescription, setVisualDescription] = useState("")
   const [visualStyle, setVisualStyle] = useState<'hand-drawn' | 'professional' | 'chalkboard'>("hand-drawn")
   const [generatedImageUrl, setGeneratedImageUrl] = useState("https://placehold.co/600x400.png")
   const [isGeneratingVisual, setIsGeneratingVisual] = useState(false)
+  const [isSavingVisual, setIsSavingVisual] = useState(false)
 
   // State for Differentiated Materials
   const [textbookImageDataUri, setTextbookImageDataUri] = useState<string | null>(null)
@@ -43,7 +49,8 @@ export default function CreateContentPage() {
   const [worksheetType, setWorksheetType] = useState<"mcq" | "fill-blanks" | "short-answer" | "">("")
   const [generatedWorksheet, setGeneratedWorksheet] = useState("")
   const [isGeneratingWorksheet, setIsGeneratingWorksheet] = useState(false)
-
+  const [isSavingWorksheet, setIsSavingWorksheet] = useState(false)
+  
   const handleGenerateContent = async () => {
     if (!contentText || !contentType) {
       toast({
@@ -71,6 +78,27 @@ export default function CreateContentPage() {
       })
     } finally {
       setIsGeneratingContent(false)
+    }
+  }
+
+  const handleSaveContent = async () => {
+    if (!generatedContent || !user || !db) return
+    setIsSavingContent(true)
+    try {
+        const docRef = await addDoc(collection(db, "content"), {
+            teacherId: user.uid,
+            type: contentType === 'story' ? 'Story' : 'Explanation',
+            title: contentText.substring(0, 50) + (contentText.length > 50 ? "..." : ""),
+            content: generatedContent,
+            createdAt: serverTimestamp(),
+            language: language,
+        })
+        toast({ title: t("Content Saved!"), description: t("You can now assign it from 'My Content'.")})
+    } catch (error) {
+        console.error("Error saving content:", error)
+        toast({ title: t("Error"), description: t("Failed to save content."), variant: "destructive"})
+    } finally {
+        setIsSavingContent(false)
     }
   }
   
@@ -102,6 +130,27 @@ export default function CreateContentPage() {
       setIsGeneratingVisual(false)
     }
   }
+
+  const handleSaveVisual = async () => {
+    if (generatedImageUrl === "https://placehold.co/600x400.png" || !user || !db) return
+    setIsSavingVisual(true)
+    try {
+        await addDoc(collection(db, "content"), {
+            teacherId: user.uid,
+            type: 'Visual',
+            title: visualDescription.substring(0, 50) + (visualDescription.length > 50 ? "..." : ""),
+            content: generatedImageUrl, // Saving data URI
+            createdAt: serverTimestamp(),
+        })
+        toast({ title: t("Visual Saved!"), description: t("You can now assign it from 'My Content'.")})
+    } catch (error) {
+        console.error("Error saving visual:", error)
+        toast({ title: t("Error"), description: t("Failed to save visual aid."), variant: "destructive"})
+    } finally {
+        setIsSavingVisual(false)
+    }
+  }
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -162,6 +211,26 @@ export default function CreateContentPage() {
     }
   };
 
+  const handleSaveWorksheet = async () => {
+    if (!generatedWorksheet || !user || !db) return
+    setIsSavingWorksheet(true)
+    try {
+        await addDoc(collection(db, "content"), {
+            teacherId: user.uid,
+            type: 'Worksheet',
+            title: `Worksheet for ${gradeLevel} (${worksheetType})`,
+            content: generatedWorksheet,
+            originalText: extractedText,
+            createdAt: serverTimestamp(),
+        })
+        toast({ title: t("Worksheet Saved!"), description: t("You can now assign it from 'My Content'.")})
+    } catch (error) {
+        console.error("Error saving worksheet:", error)
+        toast({ title: t("Error"), description: t("Failed to save worksheet."), variant: "destructive"})
+    } finally {
+        setIsSavingWorksheet(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -226,7 +295,10 @@ export default function CreateContentPage() {
                 {generatedContent && <p className="text-sm whitespace-pre-wrap">{generatedContent}</p>}
               </div>
               <div className="flex gap-2">
-                  <Button variant="outline" disabled={!generatedContent}><Save className="mr-2 h-4 w-4" /> {t("Save")}</Button>
+                  <Button variant="outline" onClick={handleSaveContent} disabled={!generatedContent || isSavingContent}>
+                    {isSavingContent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
+                    {t("Save")}
+                  </Button>
                   <Button variant="outline" disabled={!generatedContent}><Printer className="mr-2 h-4 w-4" /> {t("Print")}</Button>
                   <Button variant="outline" disabled={!generatedContent}><FileAudio className="mr-2 h-4 w-4" /> {t("Convert to Audio")}</Button>
               </div>
@@ -323,7 +395,10 @@ export default function CreateContentPage() {
                         )}
                     </div>
                      <div className="flex gap-2">
-                        <Button variant="outline" disabled={!generatedWorksheet || isGeneratingWorksheet}><Download className="mr-2 h-4 w-4" /> {t("Download (PDF)")}</Button>
+                        <Button variant="outline" onClick={handleSaveWorksheet} disabled={!generatedWorksheet || isSavingWorksheet}>
+                            {isSavingWorksheet ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} 
+                            {t("Save Worksheet")}
+                        </Button>
                         <Button variant="outline" disabled={!generatedWorksheet || isGeneratingWorksheet}><Printer className="mr-2 h-4 w-4" /> {t("Print")}</Button>
                     </div>
                 </CardFooter>
@@ -371,8 +446,11 @@ export default function CreateContentPage() {
                         }
                     </div>
                     <div className="flex gap-2">
+                        <Button variant="outline" onClick={handleSaveVisual} disabled={isGeneratingVisual || isSavingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}>
+                            {isSavingVisual ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            {t("Save")}
+                        </Button>
                         <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><Download className="mr-2 h-4 w-4" /> {t("Download Image")}</Button>
-                        <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><Save className="mr-2 h-4 w-4" /> {t("Save")}</Button>
                         <Button variant="outline" disabled={isGeneratingVisual || generatedImageUrl === "https://placehold.co/600x400.png"}><RefreshCw className="mr-2 h-4 w-4" /> {t("Generate Variations")}</Button>
                     </div>
                 </CardFooter>
