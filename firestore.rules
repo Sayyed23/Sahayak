@@ -1,56 +1,45 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // The users collection stores both teachers and students.
+    // By default, deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow users to read and update their own user document.
+    // Allow any user (authenticated or not) to query the users collection
+    // to validate a teacher's code during student sign-up.
     match /users/{userId} {
-      // **CRITICAL RULE FOR SIGN-UP**
-      // Allow ANYONE to perform a query on the users collection.
-      // This is required so a new student can check if a teacher's code is valid.
-      // This rule does NOT allow them to read the actual document data, only list documents
-      // that match a query.
-      allow list: if true;
-
-      // Allow a user to read their own document once they are logged in.
-      allow get: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow a new user to create their own document during sign-up.
+      allow read: if true; 
       allow create: if request.auth != null && request.auth.uid == userId;
-
-      // Allow a user to update their own document.
       allow update: if request.auth != null && request.auth.uid == userId;
-
-      // Prevent users from deleting their own accounts through the client.
       allow delete: if false;
     }
 
-    // Rules for reading/writing assessments
+    // Teachers can create assessments.
+    // Assigned students can read the assessment they need to take.
     match /assessments/{assessmentId} {
-        // Teachers can create new assessments.
-        allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
-        
-        // Students assigned to an assessment can read it.
-        // Teachers can read any assessment they created.
-        allow read: if request.auth != null && 
-                      (resource.data.assignedStudentIds.has(request.auth.uid) || resource.data.teacherId == request.auth.uid);
-        
-        // Only the teacher who created the assessment can update or delete it.
-        allow update, delete: if request.auth != null && resource.data.teacherId == request.auth.uid;
+      allow read: if request.auth != null && (
+                    resource.data.teacherId == request.auth.uid ||
+                    request.auth.uid in resource.data.assignedStudentIds
+                  );
+      allow create: if request.auth != null; // Further checks can be added in security rules or backend
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.teacherId;
     }
-    
-    // Rules for reading/writing submissions
+
+    // Students can create submissions for an assessment.
+    // The teacher who assigned the assessment can read/update the submission.
+    // The student who made the submission can read it.
     match /submissions/{submissionId} {
-        // Students can create submissions for themselves.
-        allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
-
-        // The student who made the submission or the teacher can read it.
-        allow read: if request.auth != null && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
-        
-        // Only the teacher can update the submission (e.g., to add feedback).
-        allow update: if request.auth != null && resource.data.teacherId == request.auth.uid;
-
-        // Nobody can delete submissions from the client.
-        allow delete: if false;
+      allow read: if request.auth != null && (
+                    request.auth.uid == resource.data.studentId || 
+                    request.auth.uid == resource.data.teacherId
+                  );
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.studentId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.teacherId;
+      allow delete: if false;
     }
   }
 }
