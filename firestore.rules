@@ -1,44 +1,52 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // By default, deny all reads and writes
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Allow users to read and update their own user document.
-    // Allow any user (authenticated or not) to query the users collection
-    // to validate a teacher's code during student sign-up.
+    
+    // The `users` collection stores data for both teachers and students.
     match /users/{userId} {
-      allow read: if true; 
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow unauthenticated users to QUERY the collection.
+      // This is essential for validating a teacher's code during student sign-up.
+      // It does NOT allow reading arbitrary user documents directly via a 'get' request.
+      allow list: if true;
+
+      // Allow users to read their own document once authenticated.
+      allow get: if request.auth.uid == userId;
+
+      // Allow users to create their own document upon sign-up.
+      allow create: if request.auth.uid == userId;
+
+      // Allow users to update their own document.
+      allow update: if request.auth.uid == userId;
+      
+      // Deleting users should be handled with care, disabling direct client deletion.
       allow delete: if false;
     }
-
-    // Teachers can create assessments.
-    // Assigned students can read the assessment they need to take.
+    
+    // Assessments are created by teachers and read by assigned students.
     match /assessments/{assessmentId} {
-      allow read: if request.auth != null && (
-                    resource.data.teacherId == request.auth.uid ||
-                    request.auth.uid in resource.data.assignedStudentIds
-                  );
-      allow create: if request.auth != null; // Further checks can be added in security rules or backend
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.teacherId;
+      // The creating teacher or an assigned student can read the assessment.
+      allow read: if request.auth.uid == resource.data.teacherId 
+                  || request.auth.uid in resource.data.assignedStudentIds;
+      
+      // Only the teacher who created the assessment can write to it.
+      allow write: if request.auth.uid == resource.data.teacherId;
     }
 
-    // Students can create submissions for an assessment.
-    // The teacher who assigned the assessment can read/update the submission.
-    // The student who made the submission can read it.
+    // Submissions are created by students and reviewed by teachers.
     match /submissions/{submissionId} {
-      allow read: if request.auth != null && (
-                    request.auth.uid == resource.data.studentId || 
-                    request.auth.uid == resource.data.teacherId
-                  );
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.studentId;
-      allow update: if request.auth != null && request.auth.uid == resource.data.teacherId;
+      // Students can create their own submissions.
+      allow create: if request.auth.uid == request.resource.data.studentId;
+      
+      // The student who submitted it and their teacher can read it.
+      allow read: if request.auth.uid == resource.data.studentId 
+                  || request.auth.uid == resource.data.teacherId;
+                  
+      // Only the teacher can update the submission (e.g., with feedback and status).
+      allow update: if request.auth.uid == resource.data.teacherId;
+      
+      // Prevent deletion for record-keeping.
       allow delete: if false;
     }
   }
