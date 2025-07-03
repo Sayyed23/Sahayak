@@ -8,7 +8,7 @@ import { ArrowRight, BookText, FileText, HelpCircle, PencilRuler } from "lucide-
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 import { useTranslation } from "@/hooks/use-translation"
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore"
+import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -24,6 +24,7 @@ interface Assignment {
   id: string;
   title: string;
   due?: string;
+  createdAt: Date;
 }
 
 export default function StudentDashboardPage() {
@@ -39,16 +40,23 @@ export default function StudentDashboardPage() {
     setIsLoadingAssignments(true);
     const assignmentsQuery = query(
         collection(db, "assessments"),
-        where("assignedStudentIds", "array-contains", user.uid),
-        orderBy("createdAt", "desc")
+        where("assignedStudentIds", "array-contains", user.uid)
     );
 
     const unsubscribe = onSnapshot(assignmentsQuery, (snapshot) => {
-        const assignmentsData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            title: doc.data().title,
-            due: t("New Assignment"),
-        }));
+        const assignmentsData: Assignment[] = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                title: data.title,
+                due: t("New Assignment"),
+                createdAt: data.createdAt?.toDate() || new Date(0),
+            };
+        });
+        
+        // Sort on the client to avoid needing a composite index
+        assignmentsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
         setAssignments(assignmentsData);
         setIsLoadingAssignments(false);
     }, (error) => {
