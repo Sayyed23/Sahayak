@@ -3,36 +3,37 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Rules for the users collection
     match /users/{userId} {
-      // Allow anyone to read user profiles (needed for teacher code validation).
-      allow read;
+      // Allow anyone to query/read user documents.
+      // This is required for new students to validate a teacher's code before signing up.
+      // NOTE: This exposes user data (like email) to be publicly readable.
+      // For a production app, a more secure approach (like a Cloud Function) is recommended.
+      allow get, list: if true;
 
-      // A user can create their own user document when signing up.
-      allow create: if request.auth != null && request.auth.uid == userId;
-      
-      // A user can update their own user document.
-      allow update: if request.auth != null && request.auth.uid == userId;
+      // Only an authenticated user can create, update, or delete their own document.
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Rules for assessments
     match /assessments/{assessmentId} {
-      // An authenticated user can read an assessment if they are the teacher who created it,
-      // or if they are one of the students assigned to it.
-      allow read: if request.auth != null
-                    && (resource.data.teacherId == request.auth.uid
-                        || request.auth.uid in resource.data.assignedStudentIds);
-
-      // Only the teacher can create or update an assessment.
-      allow create, update: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
+      // Teachers can create assessments.
+      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      // Any authenticated user can read assessments (e.g., a student reading an assignment).
+      allow read: if request.auth != null;
+      // Only the teacher who created the assessment can update or delete it.
+      allow update, delete: if request.auth != null && resource.data.teacherId == request.auth.uid;
     }
 
+    // Rules for submissions
     match /submissions/{submissionId} {
       // A student can create a submission.
-      allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
-
-      // A submission can be read or updated by the student who submitted it, or the teacher it was submitted to.
-      allow read, update: if request.auth != null 
-                           && (resource.data.studentId == request.auth.uid
-                               || resource.data.teacherId == request.auth.uid);
+      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
+      // A student can read/update their own submission.
+      // A teacher can read/update any submission linked to them.
+      allow read, update: if request.auth != null && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
+      // Only the teacher can delete a submission.
+      allow delete: if request.auth != null && resource.data.teacherId == request.auth.uid;
     }
   }
 }
