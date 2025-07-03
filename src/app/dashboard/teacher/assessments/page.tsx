@@ -9,7 +9,7 @@ import { Plus, List, Users, Clock, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore"
+import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { useAuth } from "@/hooks/use-auth"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useTranslation } from "@/hooks/use-translation"
@@ -67,8 +67,7 @@ export default function AssessmentsPage() {
     const reviewsQuery = query(
         collection(db, "submissions"),
         where("teacherId", "==", user.uid),
-        where("status", "==", "pending_review"),
-        orderBy("submittedAt", "desc")
+        where("status", "==", "pending_review")
     );
     const unsubscribeReviews = onSnapshot(reviewsQuery, (snapshot) => {
         const reviewsData = snapshot.docs.map(doc => {
@@ -78,9 +77,13 @@ export default function AssessmentsPage() {
                 id: doc.id,
                 studentName: data.studentName,
                 passageTitle: data.passageTitle,
+                submittedAt: submittedAt || new Date(0),
                 submissionDate: submittedAt ? formatDistanceToNow(submittedAt, { addSuffix: true }) : t("Just now"),
             };
         });
+
+        reviewsData.sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
+
         setPendingReviews(reviewsData);
         setIsLoadingReviews(false);
     });
