@@ -17,7 +17,7 @@ const quickAccessItems = [
   { title: "Start Lesson", href: "/dashboard/student/my-lessons", icon: PencilRuler, description: "Jump into your next lesson." },
   { title: "Ask a Question", href: "/dashboard/student/ask-a-question", icon: HelpCircle, description: "Get help with any topic." },
   { title: "Review Notes", href: "#", icon: BookText, description: "Look over your saved notes." },
-  { title: "View Assignments", href: "#", icon: FileText, description: "Check your upcoming tasks." },
+  { title: "View Assignments", href: "#upcoming-assignments", icon: FileText, description: "Check your upcoming tasks." },
 ]
 
 interface Assignment {
@@ -92,7 +92,7 @@ export default function StudentDashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card id="upcoming-assignments">
           <CardHeader>
             <CardTitle>{t("Upcoming Assignments")}</CardTitle>
             <CardDescription>{t("Don't forget to complete these tasks.")}</CardDescription>
