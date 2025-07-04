@@ -28,6 +28,8 @@ export default function CreateContentPage() {
   const { t, language } = useTranslation()
   const { user } = useAuth()
 
+  const [activeTab, setActiveTab] = useState("hyper-local")
+
   // State for Hyper-Local Content
   const [contentText, setContentText] = useState("")
   const [contentType, setContentType] = useState("")
@@ -298,8 +300,21 @@ export default function CreateContentPage() {
         <h1 className="text-3xl font-bold font-headline">{t("Create Content")}</h1>
         <p className="text-muted-foreground">{t("Your creative toolkit for the classroom.")}</p>
       </div>
-      <Tabs defaultValue="hyper-local" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="md:hidden mb-4">
+            <Select onValueChange={setActiveTab} value={activeTab}>
+                <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("Select a creation tool")} />
+                </SelectTrigger>
+                <SelectContent>
+                <SelectItem value="hyper-local">{t("Hyper-Local Content")}</SelectItem>
+                <SelectItem value="differentiated">{t("Differentiated Materials")}</SelectItem>
+                <SelectItem value="visual-aid">{t("Visual Aid Designer")}</SelectItem>
+                <SelectItem value="game-generator">{t("Game Generator")}</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+        <TabsList className="hidden md:grid w-full grid-cols-4">
           <TabsTrigger value="hyper-local">{t("Hyper-Local Content")}</TabsTrigger>
           <TabsTrigger value="differentiated">{t("Differentiated Materials")}</TabsTrigger>
           <TabsTrigger value="visual-aid">{t("Visual Aid Designer")}</TabsTrigger>
