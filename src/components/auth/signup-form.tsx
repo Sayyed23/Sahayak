@@ -7,7 +7,7 @@ import * as z from "zod"
 import { useRouter } from "next/navigation"
 import React, { useState } from "react"
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
-import { doc, setDoc, getDocs, collection, query, where } from "firebase/firestore"
+import { doc, setDoc, getDoc, runTransaction } from "firebase/firestore"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -102,10 +102,10 @@ export function SignUpForm({ role }: SignUpFormProps) {
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
             const teacherCode = studentValues.teacherCode.toUpperCase();
             
-            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
-            const querySnapshot = await getDocs(q);
+            const codeDocRef = doc(db, "teacherCodes", teacherCode);
+            const codeDocSnap = await getDoc(codeDocRef);
 
-            if (querySnapshot.empty) {
+            if (!codeDocSnap.exists()) {
               toast({
                 title: t("Invalid Teacher Code"),
                 description: t("No teacher found with that code. Please check and try again."),
@@ -114,7 +114,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
               setIsLoading(false);
               return;
             }
-            teacherId = querySnapshot.docs[0].id;
+            teacherId = codeDocSnap.data().teacherId;
         }
         
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
@@ -122,16 +122,24 @@ export function SignUpForm({ role }: SignUpFormProps) {
         await updateProfile(user, { displayName: (values as any).name });
 
         if (role === 'teacher') {
+            const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
+            const newTeacherCode = generateTeacherCode();
             const teacherData = {
                 uid: user.uid,
-                name: (values as any).name,
+                name: teacherValues.name,
                 email: user.email,
                 role: 'teacher',
-                school: (values as any).school,
-                language: (values as any).language,
-                teacherCode: generateTeacherCode(),
+                school: teacherValues.school,
+                language: teacherValues.language,
+                teacherCode: newTeacherCode,
             };
-            await setDoc(doc(db, "users", user.uid), teacherData);
+            const userDocRef = doc(db, "users", user.uid);
+            const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
+            // Use a transaction to ensure both user and code documents are created together
+            await runTransaction(db, async (transaction) => {
+                transaction.set(userDocRef, teacherData);
+                transaction.set(codeDocRef, { teacherId: user.uid });
+            });
         } else { // student
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
             const studentData = {
@@ -142,7 +150,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 school: studentValues.school,
                 language: studentValues.language,
                 grade: studentValues.grade,
-                teacherId: teacherId,
+                teacherId: teacherId, // This is validated and retrieved before this step
             };
             await setDoc(doc(db, "users", user.uid), studentData);
         }
@@ -167,6 +175,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 variant: "destructive",
             });
         } else {
+            console.error("Signup error:", error);
             toast({
                 title: t("Sign Up Failed"),
                 description: error.message || t("An unexpected error occurred. Please try again."),

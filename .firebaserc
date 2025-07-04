@@ -1,6 +1,7 @@
 {
   "projects": {
-    "staging": "chicha-380b1"
+    "staging": "chicha-380b1",
+    "default": "chicha-380b1"
   },
   "targets": {},
   "etags": {}
