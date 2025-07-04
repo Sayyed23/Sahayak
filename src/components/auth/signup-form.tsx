@@ -1,3 +1,4 @@
+
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -47,7 +48,7 @@ const teacherSignUpSchema = loginSchema.extend({
 const studentSignUpSchema = loginSchema.extend({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   school: z.string().min(3, { message: "School name is required." }),
-  grade: z.string().min(1, { message: "Grade is required." }),
+  grade: z.string({ required_error: "Please select your grade." }),
   language: z.string({ required_error: "Please select a language." }),
 })
 
@@ -78,7 +79,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
       name: "",
       school: "",
       language: undefined,
-      ...(role === "student" && { grade: "" }),
+      ...(role === "student" && { grade: undefined }),
     },
   })
 
@@ -189,21 +190,35 @@ export function SignUpForm({ role }: SignUpFormProps) {
                   )}
                 />
                 {role === 'student' && (
-                  <>
                   <FormField
                     control={form.control}
                     name="grade"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t("Grade")}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={t("e.g., 5th")} {...field} />
-                        </FormControl>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("Select your grade")} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Grade 1">{t("Grade 1")}</SelectItem>
+                            <SelectItem value="Grade 2">{t("Grade 2")}</SelectItem>
+                            <SelectItem value="Grade 3">{t("Grade 3")}</SelectItem>
+                            <SelectItem value="Grade 4">{t("Grade 4")}</SelectItem>
+                            <SelectItem value="Grade 5">{t("Grade 5")}</SelectItem>
+                            <SelectItem value="Grade 6">{t("Grade 6")}</SelectItem>
+                            <SelectItem value="Grade 7">{t("Grade 7")}</SelectItem>
+                            <SelectItem value="Grade 8">{t("Grade 8")}</SelectItem>
+                            <SelectItem value="Grade 9">{t("Grade 9")}</SelectItem>
+                            <SelectItem value="Grade 10">{t("Grade 10")}</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  </>
                 )}
                  <FormField
                   control={form.control}
