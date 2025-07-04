@@ -1,54 +1,41 @@
 
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      // Allow reading a user document if:
-      // 1. It's a teacher's profile (needed for student signup code validation).
-      // 2. The requester is the owner of the document.
-      // 3. The requester is the teacher of the student document being read.
-      allow read: if resource.data.role == 'teacher' || 
-                   (request.auth != null && (request.auth.uid == userId || request.auth.uid == resource.data.teacherId));
-
-      // Users can only write to their own document.
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    match /content/{contentId} {
-      // Authenticated users can read content.
-      allow read: if request.auth != null;
-      // Only the teacher who created it can write to it.
-      allow write: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
-    }
-
-    match /assignments/{assignmentId} {
-      // Teacher can read their own assignments. Student can read assignments for them.
-      allow read: if request.auth != null && (request.auth.uid == resource.data.teacherId || request.auth.uid == resource.data.studentId);
-      // Only teachers can create assignments for their students.
-      allow create: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
-    }
-
-    match /assessments/{assessmentId} {
-      // Teacher can read assessments they created. Students can read assessments assigned to them.
-      allow read: if request.auth != null && (request.auth.uid == resource.data.teacherId || request.auth.uid in resource.data.assignedStudentIds);
-      // Only teachers can create assessments.
-      allow create: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
-    }
-
-    match /submissions/{submissionId} {
-      // Student who submitted and their teacher can read.
-      allow read: if request.auth != null && (request.auth.uid == resource.data.studentId || request.auth.uid == resource.data.teacherId);
-      // Only the student can create their submission.
-      allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
-      // Only the teacher can update (add feedback).
-      allow update: if request.auth != null && request.auth.uid == resource.data.teacherId;
-    }
-
-    match /game_sessions/{sessionId} {
-      // For now, allow any authenticated user to read. This could be tightened later.
-      allow read: if request.auth != null;
-      // Only the student can create their own game session.
-      allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "request.auth != null && (request.auth.uid == $uid || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && resource.data.teacherId == request.auth.uid)) || resource.data.role == 'teacher'",
+        ".write": "request.auth != null && request.auth.uid == $uid"
+      }
+    },
+    "assessments": {
+      "$assessmentId": {
+        ".read": "request.auth != null && (resource.data.teacherId == request.auth.uid || request.auth.uid in resource.data.assignedStudentIds)",
+        ".write": "request.auth != null && resource.data.teacherId == request.auth.uid"
+      }
+    },
+    "submissions": {
+      "$submissionId": {
+        ".read": "request.auth != null && (resource.data.teacherId == request.auth.uid || resource.data.studentId == request.auth.uid)",
+        ".write": "request.auth != null && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid)"
+      }
+    },
+    "content": {
+      "$contentId": {
+        ".read": "request.auth != null && (request.auth.uid == resource.data.teacherId || request.auth.uid in resource.data.assignedStudentIds)",
+        ".write": "request.auth != null && request.auth.uid == resource.data.teacherId"
+      }
+    },
+    "assignments": {
+      "$assignmentId": {
+        ".read": "request.auth.uid == resource.data.teacherId || request.auth.uid == resource.data.studentId",
+        ".write": "request.auth.uid == resource.data.teacherId"
+      }
+    },
+    "game_sessions": {
+      "$sessionId": {
+        ".read": "request.auth.uid == resource.data.studentId || get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.teacherId == request.auth.uid",
+        ".write": "request.auth.uid == resource.data.studentId"
+      }
     }
   }
 }

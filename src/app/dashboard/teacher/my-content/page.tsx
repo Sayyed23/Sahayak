@@ -13,7 +13,7 @@ import { useTranslation } from "@/hooks/use-translation"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { db } from "@/lib/firebase"
-import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp, updateDoc, arrayUnion } from "firebase/firestore"
 import { Skeleton } from "@/components/ui/skeleton"
 import { format } from "date-fns"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
@@ -79,7 +79,7 @@ export default function MyContentPage() {
     if (!user || !db) return
 
     setIsLoadingStudents(true)
-    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
+    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"), where("teacherId", "==", user.uid))
     const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
       querySnapshot.forEach((doc) => {
@@ -129,6 +129,13 @@ export default function MyContentPage() {
         })
       })
       await Promise.all(assignmentPromises)
+
+      // Add student IDs to the content document for read permissions
+      const contentRef = doc(db, "content", contentToAssign.id);
+      await updateDoc(contentRef, {
+        assignedStudentIds: arrayUnion(...selectedStudents)
+      });
+      
       toast({
         title: t("Content Assigned!"),
         description: t("Your students can now see this in their 'My Lessons' section."),
