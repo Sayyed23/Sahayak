@@ -44,7 +44,7 @@ export default function AssessmentsPage() {
     if (!db || !user) return
 
     setIsLoadingStudents(true)
-    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
+    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"), where("teacherId", "==", user.uid))
     const unsubscribeStudents = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
       let isBoy = true;
@@ -161,7 +161,7 @@ export default function AssessmentsPage() {
               </div>
             ))
           ) : (
-             <p className="text-sm text-muted-foreground text-center p-4">{t("No students have signed up yet. New students will appear here once they create an account.")}</p>
+             <p className="text-sm text-muted-foreground text-center p-4">{t("No students have signed up yet. Students will appear here once they create an account with your teacher code.")}</p>
           )}
         </CardContent>
       </Card>

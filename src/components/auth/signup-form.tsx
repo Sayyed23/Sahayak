@@ -49,6 +49,7 @@ const studentSignUpSchema = loginSchema.extend({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   school: z.string().min(3, { message: "School name is required." }),
   grade: z.string({ required_error: "Please select your grade." }),
+  teacherCode: z.string().length(6, { message: "Teacher code must be 6 characters." }),
   language: z.string({ required_error: "Please select a language." }),
 })
 
@@ -79,7 +80,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
       name: "",
       school: "",
       language: undefined,
-      ...(role === "student" && { grade: undefined }),
+      ...(role === "student" && { grade: undefined, teacherCode: "" }),
     },
   })
 
@@ -96,6 +97,26 @@ export function SignUpForm({ role }: SignUpFormProps) {
     setIsLoading(true);
 
     try {
+        let teacherId: string | null = null;
+        if (role === 'student') {
+            const studentValues = values as z.infer<typeof studentSignUpSchema>;
+            const teacherCode = studentValues.teacherCode.toUpperCase();
+            
+            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+              toast({
+                title: t("Invalid Teacher Code"),
+                description: t("No teacher found with that code. Please check and try again."),
+                variant: "destructive",
+              });
+              setIsLoading(false);
+              return;
+            }
+            teacherId = querySnapshot.docs[0].id;
+        }
+        
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
         await updateProfile(user, { displayName: (values as any).name });
@@ -121,7 +142,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 school: studentValues.school,
                 language: studentValues.language,
                 grade: studentValues.grade,
-                teacherId: null, // No teacher assigned at signup
+                teacherId: teacherId,
             };
             await setDoc(doc(db, "users", user.uid), studentData);
         }
@@ -190,35 +211,57 @@ export function SignUpForm({ role }: SignUpFormProps) {
                   )}
                 />
                 {role === 'student' && (
-                  <FormField
-                    control={form.control}
-                    name="grade"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("Grade")}</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="grade"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("Grade")}</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t("Select your grade")} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Grade 1">{t("Grade 1")}</SelectItem>
+                              <SelectItem value="Grade 2">{t("Grade 2")}</SelectItem>
+                              <SelectItem value="Grade 3">{t("Grade 3")}</SelectItem>
+                              <SelectItem value="Grade 4">{t("Grade 4")}</SelectItem>
+                              <SelectItem value="Grade 5">{t("Grade 5")}</SelectItem>
+                              <SelectItem value="Grade 6">{t("Grade 6")}</SelectItem>
+                              <SelectItem value="Grade 7">{t("Grade 7")}</SelectItem>
+                              <SelectItem value="Grade 8">{t("Grade 8")}</SelectItem>
+                              <SelectItem value="Grade 9">{t("Grade 9")}</SelectItem>
+                              <SelectItem value="Grade 10">{t("Grade 10")}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="teacherCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("Teacher Code")}</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={t("Select your grade")} />
-                            </SelectTrigger>
+                            <Input
+                              placeholder={t("Enter 6-character code")}
+                              {...field}
+                              maxLength={6}
+                              className="uppercase tracking-widest"
+                              autoCapitalize="characters"
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Grade 1">{t("Grade 1")}</SelectItem>
-                            <SelectItem value="Grade 2">{t("Grade 2")}</SelectItem>
-                            <SelectItem value="Grade 3">{t("Grade 3")}</SelectItem>
-                            <SelectItem value="Grade 4">{t("Grade 4")}</SelectItem>
-                            <SelectItem value="Grade 5">{t("Grade 5")}</SelectItem>
-                            <SelectItem value="Grade 6">{t("Grade 6")}</SelectItem>
-                            <SelectItem value="Grade 7">{t("Grade 7")}</SelectItem>
-                            <SelectItem value="Grade 8">{t("Grade 8")}</SelectItem>
-                            <SelectItem value="Grade 9">{t("Grade 9")}</SelectItem>
-                            <SelectItem value="Grade 10">{t("Grade 10")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
                 )}
                  <FormField
                   control={form.control}
