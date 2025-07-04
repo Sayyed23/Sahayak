@@ -260,19 +260,21 @@ export default function AssignAssessmentPage() {
 
                     return (
                       <AccordionItem value={grade} key={grade}>
-                        <AccordionPrimitive.Header className="flex items-center p-2">
-                          <Checkbox
-                            id={`select-grade-${grade}`}
-                            checked={allInGradeSelected}
-                            onCheckedChange={(checked) => handleSelectGrade(grade, checked)}
-                            aria-label={`Select all students in grade ${grade}`}
-                          />
-                          <AccordionPrimitive.Trigger asChild>
-                              <Label htmlFor={`select-grade-${grade}`} className="flex-1 p-2 font-semibold text-base cursor-pointer flex justify-between items-center hover:bg-accent rounded-sm">
-                                {t("Grade")} {grade}
+                        <AccordionPrimitive.Header className="flex items-center px-2 py-1">
+                            <div className="flex items-center space-x-3 flex-1 p-2">
+                                <Checkbox
+                                    id={`select-grade-${grade}`}
+                                    checked={allInGradeSelected}
+                                    onCheckedChange={(checked) => handleSelectGrade(grade, checked)}
+                                    aria-label={`Select all students in grade ${grade}`}
+                                />
+                                <Label htmlFor={`select-grade-${grade}`} className="font-semibold text-base flex-1 cursor-pointer">
+                                    {t("Grade")} {grade}
+                                </Label>
+                            </div>
+                            <AccordionPrimitive.Trigger className="p-2 rounded-sm hover:bg-accent">
                                 <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 data-[state=open]:rotate-180" />
-                              </Label>
-                          </AccordionPrimitive.Trigger>
+                            </AccordionPrimitive.Trigger>
                         </AccordionPrimitive.Header>
                         <AccordionContent>
                           <div className="space-y-2 pt-2 pl-10">
