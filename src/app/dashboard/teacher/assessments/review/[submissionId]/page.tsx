@@ -198,7 +198,7 @@ export default function ReviewAssessmentPage() {
                      </div>
                   </div>
                 </div>
-                <div className="p-4 border rounded-lg bg-muted/30 text-lg leading-relaxed">
+                <div className="p-4 border rounded-lg bg-muted/30 text-base md:text-lg leading-relaxed">
                    {report.report.analysis ? report.report.analysis.map((wordData, index) => {
                       const isActive = index === activeWordIndex;
                       let displayWord = wordData.word;
