@@ -9,7 +9,7 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  ChevronDown
+  Users,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -95,6 +95,7 @@ export default function TeacherLayout({
     { href: '/dashboard/teacher/create-content', icon: PlusSquare, label: t('Create Content') },
     { href: '/dashboard/teacher/my-content', icon: Library, label: t('My Content') },
     { href: '/dashboard/teacher/assessments', icon: ClipboardCheck, label: t('Assessments') },
+    { href: '/dashboard/teacher/my-students', icon: Users, label: t('My Students') },
     { href: '/dashboard/teacher/settings', icon: Settings, label: t('Settings') },
   ]
 

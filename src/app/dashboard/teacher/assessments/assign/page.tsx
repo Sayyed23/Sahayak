@@ -20,11 +20,15 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/hooks/use-auth"
 import { useTranslation } from "@/hooks/use-translation"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 interface Student {
   id: string
   name: string
+  grade: string
 }
+
+type GroupedStudents = Record<string, Student[]>
 
 export default function AssignAssessmentPage() {
   const { toast } = useToast()
@@ -40,6 +44,7 @@ export default function AssignAssessmentPage() {
   
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [students, setStudents] = useState<Student[]>([])
+  const [groupedStudents, setGroupedStudents] = useState<GroupedStudents>({})
   const [isLoadingStudents, setIsLoadingStudents] = useState(true)
 
   useEffect(() => {
@@ -51,13 +56,31 @@ export default function AssignAssessmentPage() {
       const studentsData: Student[] = []
       querySnapshot.forEach((doc) => {
         const data = doc.data()
-        // Ensure student has a name before adding
-        if(data.name) {
-          studentsData.push({ id: doc.id, name: data.name })
+        // Ensure student has a name and grade before adding
+        if (data.name && data.grade) {
+          studentsData.push({ id: doc.id, name: data.name, grade: data.grade })
         }
       })
       setStudents(studentsData)
+
+      // Group students
+      const grouped = studentsData.reduce((acc, student) => {
+        const { grade } = student
+        if (!acc[grade]) {
+          acc[grade] = []
+        }
+        acc[grade].push(student)
+        return acc
+      }, {} as GroupedStudents)
+      
+      const sortedGrades = Object.keys(grouped).sort();
+      const sortedGrouped: GroupedStudents = {};
+      for (const grade of sortedGrades) {
+          sortedGrouped[grade] = grouped[grade];
+      }
+      setGroupedStudents(sortedGrouped)
       setIsLoadingStudents(false)
+
     }, (error) => {
       console.error("Error fetching students:", error)
       toast({
@@ -137,6 +160,15 @@ export default function AssignAssessmentPage() {
       setSelectedStudents([])
     }
   }
+  
+  const handleSelectGrade = (grade: string, checked: boolean | string) => {
+    const studentIdsInGrade = groupedStudents[grade]?.map(s => s.id) || [];
+    if (checked) {
+      setSelectedStudents(prev => [...new Set([...prev, ...studentIdsInGrade])]);
+    } else {
+      setSelectedStudents(prev => prev.filter(id => !studentIdsInGrade.includes(id)));
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -213,30 +245,54 @@ export default function AssignAssessmentPage() {
                 <Checkbox id="select-all" onCheckedChange={handleSelectAll} checked={students.length > 0 && selectedStudents.length === students.length} />
                 <Label htmlFor="select-all" className="font-medium">{t("Select All Students")}</Label>
               </div>
-              <div className="space-y-2 border rounded-md p-2 h-64 overflow-y-auto">
+              <Accordion type="multiple" className="w-full border-t">
                 {isLoadingStudents ? (
                   <div className="space-y-2 p-2">
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-6 w-2/3" />
-                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
                   </div>
-                ) : students.length > 0 ? (
-                  students.map(student => (
-                    <div key={student.id} className="flex items-center space-x-2 p-1 rounded-md hover:bg-accent">
-                      <Checkbox
-                        id={student.id}
-                        checked={selectedStudents.includes(student.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedStudents(prev => checked ? [...prev, student.id] : prev.filter(id => id !== student.id))
-                        }}
-                      />
-                      <Label htmlFor={student.id} className="w-full cursor-pointer">{student.name}</Label>
-                    </div>
-                  ))
+                ) : Object.keys(groupedStudents).length > 0 ? (
+                  Object.entries(groupedStudents).map(([grade, studentsInGrade]) => {
+                    const allInGradeSelected = studentsInGrade.every(s => selectedStudents.includes(s.id));
+
+                    return (
+                      <AccordionItem value={grade} key={grade}>
+                        <AccordionTrigger className="py-2 px-2 hover:no-underline">
+                          <div className="flex items-center space-x-3 w-full">
+                            <Checkbox
+                              id={`select-grade-${grade}`}
+                              checked={allInGradeSelected}
+                              onCheckedChange={(checked) => handleSelectGrade(grade, checked)}
+                              onClick={(e) => e.stopPropagation()} // Prevent trigger from firing
+                              aria-label={`Select all students in grade ${grade}`}
+                            />
+                            <Label htmlFor={`select-grade-${grade}`} className="font-semibold text-base cursor-pointer">{t("Grade")} {grade}</Label>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2 pt-2 pl-10">
+                            {studentsInGrade.map(student => (
+                              <div key={student.id} className="flex items-center space-x-2 p-1 rounded-md">
+                                <Checkbox
+                                  id={student.id}
+                                  checked={selectedStudents.includes(student.id)}
+                                  onCheckedChange={(checked) => {
+                                    setSelectedStudents(prev => checked ? [...prev, student.id] : prev.filter(id => id !== student.id))
+                                  }}
+                                />
+                                <Label htmlFor={student.id} className="w-full cursor-pointer">{student.name}</Label>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })
                 ) : (
-                  <p className="text-sm text-muted-foreground p-2 text-center">{t("No students found. New students will appear here once they sign up.")}</p>
+                  <p className="text-sm text-muted-foreground p-4 text-center">{t("No students found. New students will appear here once they sign up.")}</p>
                 )}
-              </div>
+              </Accordion>
             </CardContent>
           </Card>
           <Button size="lg" className="w-full" onClick={handleAssignAssessment} disabled={isAssigning}>
