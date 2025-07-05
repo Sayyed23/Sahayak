@@ -50,45 +50,27 @@ const prompt = ai.definePrompt({
   name: 'analyzeReadingAssessmentPrompt',
   input: {schema: AnalyzeReadingAssessmentInputSchema},
   output: {schema: AnalyzeReadingAssessmentOutputSchema},
-  prompt: `You are an expert English reading teacher and assessment analyst. You will be given a passage of text and an audio recording of a student reading that passage. Your task is to provide a detailed, word-by-word analysis of the student's reading performance.
+  prompt: `You are an expert reading assessment analyst.
+  Analyze the student's audio recording against the provided passage text.
 
   Passage Text:
   ---
   {{{passageText}}}
   ---
 
-  Audio Recording:
+  Audio Recording of student reading:
   {{media url=audioDataUri}}
 
-  CRITICAL INSTRUCTIONS:
-  Your response MUST be a single JSON object that strictly conforms to the output schema. Do not include any other text, markdown, or formatting. Every required field in the schema MUST be present in your output.
-
   Perform the following analysis:
-  1.  **Calculate Fluency (WPM):** You MUST calculate the student's reading fluency in Words Per Minute (WPM). This is a required field.
-  2.  **Calculate Accuracy:** Calculate the pronunciation accuracy as a percentage.
-  3.  **Word-by-Word Analysis:** Go through the original passage word by word and compare it to the student's audio.
-      - For each word, determine its 'status': "correct", "mispronunciation", "substitution", "omission", or "insertion".
-      - **For every spoken word (correct, mispronunciation, substitution, insertion), you MUST provide both a 'startTime' and 'endTime' in seconds.** Omitted words will not have timestamps. This is a critical requirement.
-      - For 'substitution' or 'mispronunciation', provide the word the student actually said in the 'spokenWord' field.
-  4.  **Summarize Errors:** You MUST calculate the total count for each type of error (mispronunciations, substitutions, omissions, insertions) and provide it in the 'errorSummary' object. This is a required field.
-  5.  **Format the Output:** The final output must be a single JSON object containing the 'fluencyWPM', 'accuracyPercentage', 'analysis' array, and 'errorSummary' object. Be precise and thorough.
+  1.  **Word-by-Word Analysis**: Compare the audio to the text word by word.
+      - Classify each word's status: "correct", "mispronunciation", "substitution", "omission", or "insertion".
+      - For every word spoken in the audio, you MUST provide its 'startTime' and 'endTime' in seconds. This is critical. Omissions will not have timestamps.
+  2.  **Calculate Fluency**: Calculate the student's reading fluency in Words Per Minute (WPM).
+  3.  **Calculate Accuracy**: Calculate the pronunciation accuracy as a percentage.
+  4.  **Summarize Errors**: Count the total number of mispronunciations, substitutions, omissions, and insertions.
 
-  Example of a valid response format:
-  {
-    "fluencyWPM": 85,
-    "accuracyPercentage": 95.2,
-    "analysis": [
-      { "word": "The", "status": "correct", "startTime": 0.1, "endTime": 0.4 },
-      { "word": "quick", "status": "substitution", "startTime": 0.5, "endTime": 0.8, "spokenWord": "quack" },
-      { "word": "brown", "status": "omission" }
-    ],
-    "errorSummary": {
-      "mispronunciations": 0,
-      "substitutions": 1,
-      "omissions": 1,
-      "insertions": 0
-    }
-  }`,
+  CRITICAL: Your response MUST be a single, valid JSON object that strictly conforms to the output schema.
+  Your JSON object MUST contain these four top-level fields: 'fluencyWPM', 'accuracyPercentage', 'analysis', and 'errorSummary'. All fields are mandatory.`,
 });
 
 
