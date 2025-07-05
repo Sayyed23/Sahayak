@@ -27,10 +27,18 @@ const WordAnalysisSchema = z.object({
   spokenWord: z.string().optional().describe("The word that was actually spoken by the student, e.g., for substitutions or mispronunciations.")
 });
 
+const ErrorSummarySchema = z.object({
+  mispronunciations: z.number().describe("The total number of mispronounced words."),
+  substitutions: z.number().describe("The total number of substituted words."),
+  omissions: z.number().describe("The total number of omitted words."),
+  insertions: z.number().describe("The total number of inserted words."),
+});
+
 const AnalyzeReadingAssessmentOutputSchema = z.object({
   fluencyWPM: z.number().describe("The student's reading fluency in words per minute."),
   accuracyPercentage: z.number().describe("The student's pronunciation accuracy as a percentage."),
   analysis: z.array(WordAnalysisSchema).describe("A detailed, word-by-word analysis of the reading performance, including timestamps for spoken words and error classifications. The array should follow the sequence of the original passage, with insertions placed at the appropriate positions."),
+  errorSummary: ErrorSummarySchema.describe("A summary count of each error type."),
 });
 export type AnalyzeReadingAssessmentOutput = z.infer<typeof AnalyzeReadingAssessmentOutputSchema>;
 
@@ -62,7 +70,8 @@ const prompt = ai.definePrompt({
       - For each word, determine its 'status': "correct", "mispronunciation", "substitution", "omission", or "insertion".
       - **For every spoken word (correct, mispronunciation, substitution, insertion), you MUST provide both a 'startTime' and 'endTime' in seconds.** Omitted words will not have timestamps.
       - For 'substitution' or 'mispronunciation', provide the word the student actually said in the 'spokenWord' field.
-  4.  **Format the Output:** The final output must be a single JSON object containing the 'fluencyWPM', 'accuracyPercentage', and an 'analysis' array. This array must contain an object for each word in the original passage, in order, with insertions added at the points they occurred. Be precise and thorough.
+  4.  **Summarize Errors:** Calculate the total count for each type of error (mispronunciations, substitutions, omissions, insertions) and provide it in the 'errorSummary' object.
+  5.  **Format the Output:** The final output must be a single JSON object containing the 'fluencyWPM', 'accuracyPercentage', 'analysis' array, and 'errorSummary' object. Be precise and thorough.
 
   Example of a valid response format:
   {
@@ -70,8 +79,15 @@ const prompt = ai.definePrompt({
     "accuracyPercentage": 95.2,
     "analysis": [
       { "word": "The", "status": "correct", "startTime": 0.1, "endTime": 0.4 },
-      { "word": "quick", "status": "mispronunciation", "startTime": 0.5, "endTime": 0.8, "spokenWord": "quack" }
-    ]
+      { "word": "quick", "status": "substitution", "startTime": 0.5, "endTime": 0.8, "spokenWord": "quack" },
+      { "word": "brown", "status": "omission" }
+    ],
+    "errorSummary": {
+      "mispronunciations": 0,
+      "substitutions": 1,
+      "omissions": 1,
+      "insertions": 0
+    }
   }`,
 });
 
