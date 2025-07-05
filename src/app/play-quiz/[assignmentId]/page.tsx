@@ -16,6 +16,7 @@ import { cn, shuffleArray } from '@/lib/utils'
 
 interface Assignment {
   contentId: string;
+  teacherId: string;
 }
 
 export default function PlayGamePage() {
@@ -27,6 +28,7 @@ export default function PlayGamePage() {
   const { user } = useAuth()
   
   const [game, setGame] = useState<GameData | null>(null)
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [isLoading, setIsLoading] = useState(true)
 
   // Quiz state
@@ -58,6 +60,7 @@ export default function PlayGamePage() {
 
         if (assignmentSnap.exists()) {
           const assignmentData = assignmentSnap.data() as Assignment
+          setAssignment(assignmentData);
           const contentRef = doc(db, 'content', assignmentData.contentId)
           const contentSnap = await getDoc(contentRef)
 
@@ -90,11 +93,12 @@ export default function PlayGamePage() {
   }, [assignmentId])
 
   useEffect(() => {
-    if (isFinished && user && game && db) {
+    if (isFinished && user && game && db && assignment) {
       const saveSession = async () => {
         try {
           await addDoc(collection(db, "game_sessions"), {
             studentId: user.uid,
+            teacherId: assignment.teacherId,
             assignmentId: assignmentId,
             gameTitle: game.title,
             score: game.gameType === 'quiz' ? score : attempts,
@@ -108,7 +112,7 @@ export default function PlayGamePage() {
       };
       saveSession();
     }
-  }, [isFinished, user, game, db, assignmentId, score, attempts]);
+  }, [isFinished, user, game, db, assignmentId, score, attempts, assignment]);
   
   // Effect to check for a match in the matching game
   useEffect(() => {
