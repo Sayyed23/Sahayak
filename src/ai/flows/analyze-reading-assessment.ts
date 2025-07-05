@@ -51,7 +51,7 @@ const prompt = ai.definePrompt({
   model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: AnalyzeReadingAssessmentInputSchema},
   output: {schema: AnalyzeReadingAssessmentOutputSchema},
-  prompt: `You are an expert reading assessment analyst. Your task is to analyze a student's audio recording against a given passage text and provide a detailed analysis.
+  prompt: `You are a highly precise reading assessment analyst. Your task is to meticulously analyze a student's audio recording against a given passage of text.
 
   **Passage Text:**
   ---
@@ -61,18 +61,51 @@ const prompt = ai.definePrompt({
   **Audio Recording:**
   {{media url=audioDataUri}}
 
+  **Your response MUST be a single, valid JSON object that strictly conforms to the output schema. No other text or explanation should be provided.**
+
   **Analysis Requirements:**
+  You must calculate and include the following four (4) mandatory top-level fields in your JSON response: 'fluencyWPM', 'accuracyPercentage', 'analysis', and 'errorSummary'.
 
-  1.  **Fluency (WPM):** Calculate the student's reading fluency in Words Per Minute.
-  2.  **Accuracy Percentage:** Calculate the pronunciation accuracy as a percentage.
-  3.  **Word-by-Word Analysis:** Compare the audio to the text word by word.
-      - Classify each word's status: "correct", "mispronunciation", "substitution", "omission", or "insertion".
-      - **For every word spoken in the audio (correct, mispronounced, substituted, or inserted), you MUST provide its 'startTime' and 'endTime' in seconds.** Omissions will not have timestamps.
-  4.  **Error Summary:** Count the total number of mispronunciations, substitutions, omissions, and insertions.
+  1.  **fluencyWPM (number):** Calculate the student's reading fluency in Words Per Minute.
+  2.  **accuracyPercentage (number):** Calculate the pronunciation accuracy as a percentage.
+  3.  **errorSummary (object):** Provide a summary count for each error type: 'mispronunciations', 'substitutions', 'omissions', 'insertions'.
+  4.  **analysis (array):** Provide a detailed, word-by-word analysis.
+      - For every word spoken in the audio, you **MUST** provide its 'startTime' and 'endTime' in seconds.
+      - Omissions will not have timestamps.
+      - The 'status' must be one of: "correct", "mispronunciation", "substitution", "omission", or "insertion".
 
-  **Output Command:**
-  Your response MUST be a single, valid JSON object that strictly conforms to the output schema.
-  The JSON object MUST contain these four top-level fields: 'fluencyWPM', 'accuracyPercentage', 'analysis', and 'errorSummary'. All fields are mandatory. Do not omit any fields.`,
+  **Example Output Format:**
+  {
+    "fluencyWPM": 85,
+    "accuracyPercentage": 95.2,
+    "errorSummary": {
+      "mispronunciations": 1,
+      "substitutions": 0,
+      "omissions": 1,
+      "insertions": 0
+    },
+    "analysis": [
+      {
+        "word": "The",
+        "status": "correct",
+        "startTime": 0.1,
+        "endTime": 0.4
+      },
+      {
+        "word": "quick",
+        "status": "mispronunciation",
+        "startTime": 0.5,
+        "endTime": 0.8,
+        "spokenWord": "quack"
+      },
+      {
+        "word": "brown",
+        "status": "omission"
+      }
+    ]
+  }
+
+  **Final Command:** Generate the JSON output now.`,
 });
 
 
