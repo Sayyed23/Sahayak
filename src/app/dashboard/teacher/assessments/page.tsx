@@ -30,6 +30,7 @@ interface PendingReview {
     passageTitle: string;
     submissionDate: string;
     submittedAt: Date;
+    submissionType?: 'reading' | 'worksheet';
 }
 
 export default function AssessmentsPage() {
@@ -82,6 +83,7 @@ export default function AssessmentsPage() {
                 passageTitle: data.passageTitle,
                 submittedAt: submittedAt || new Date(0),
                 submissionDate: submittedAt ? formatDistanceToNow(submittedAt, { addSuffix: true }) : t("Just now"),
+                submissionType: data.submissionType,
             };
         });
 
@@ -181,7 +183,10 @@ export default function AssessmentsPage() {
              <div key={review.id} className="flex flex-wrap items-center justify-between gap-4 p-3 rounded-lg hover:bg-accent">
                <div>
                   <p className="font-semibold">{review.studentName} - "{t(review.passageTitle)}"</p>
-                  <p className="text-sm text-muted-foreground">{t("Submitted {{date}}", { date: review.submissionDate})}</p>
+                   <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Badge variant="secondary">{review.submissionType === 'worksheet' ? t('Worksheet') : t('Reading')}</Badge>
+                      <span>{t("Submitted {{date}}", { date: review.submissionDate})}</span>
+                  </p>
                </div>
                 <Button asChild size="sm">
                     <Link href={`/dashboard/teacher/assessments/review/${review.id}`}>{t("Review")}</Link>

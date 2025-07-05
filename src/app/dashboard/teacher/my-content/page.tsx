@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Content {
   id: string
@@ -45,6 +46,7 @@ export default function MyContentPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [students, setStudents] = useState<Student[]>([])
   const [isLoadingStudents, setIsLoadingStudents] = useState(true)
+  const [activeTab, setActiveTab] = useState("stories")
 
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
   const [contentToAssign, setContentToAssign] = useState<Content | null>(null)
@@ -166,8 +168,21 @@ export default function MyContentPage() {
         <Input placeholder={t("Search content...")} className="pl-10" />
       </div>
 
-      <Tabs defaultValue="stories" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="md:hidden mb-4">
+            <Select onValueChange={setActiveTab} value={activeTab}>
+                <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("Select a content type")} />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="stories">{t("Stories & Explanations")}</SelectItem>
+                    <SelectItem value="worksheets">{t("Worksheets")}</SelectItem>
+                    <SelectItem value="visuals">{t("Visual Aids")}</SelectItem>
+                    <SelectItem value="games">{t("Games")}</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+        <TabsList className="hidden md:grid w-full grid-cols-4">
           <TabsTrigger value="stories">{t("Stories & Explanations")}</TabsTrigger>
           <TabsTrigger value="worksheets">{t("Worksheets")}</TabsTrigger>
           <TabsTrigger value="visuals">{t("Visual Aids")}</TabsTrigger>

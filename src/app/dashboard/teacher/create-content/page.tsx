@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Mic, UploadCloud, Image as ImageIcon, Wand2, Save, Printer, FileAudio, Download, RefreshCw, Loader2, X, Gamepad2 } from "lucide-react"
 import Image from "next/image"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { generateHyperLocalContent } from "@/ai/flows/generate-hyper-local-content"
 import { designVisualAid } from "@/ai/flows/design-visual-aid"
@@ -28,12 +28,21 @@ export default function CreateContentPage() {
   const { t, language } = useTranslation()
   const { user } = useAuth()
 
+  const [activeTab, setActiveTab] = useState("hyper-local")
+
   // State for Hyper-Local Content
   const [contentText, setContentText] = useState("")
   const [contentType, setContentType] = useState("")
+  const [contentLanguage, setContentLanguage] = useState(language)
   const [generatedContent, setGeneratedContent] = useState("")
   const [isGeneratingContent, setIsGeneratingContent] = useState(false)
   const [isSavingContent, setIsSavingContent] = useState(false)
+
+  // Keep content language in sync with global language, but allow override
+  useEffect(() => {
+    setContentLanguage(language);
+  }, [language]);
+
 
   // State for Visual Aid Designer
   const [visualDescription, setVisualDescription] = useState("")
@@ -61,7 +70,7 @@ export default function CreateContentPage() {
   const [isSavingGame, setIsSavingGame] = useState(false)
   
   const handleGenerateContent = async () => {
-    if (!contentText || !contentType) {
+    if (!contentText || !contentType || !contentLanguage) {
       toast({
         title: t("Missing Information"),
         description: t("Please fill out all fields to generate content."),
@@ -75,7 +84,7 @@ export default function CreateContentPage() {
       const result = await generateHyperLocalContent({
         text: contentText,
         contentType: contentType,
-        outputLanguage: language,
+        outputLanguage: contentLanguage,
       })
       setGeneratedContent(result.generatedContent)
     } catch (error) {
@@ -100,7 +109,7 @@ export default function CreateContentPage() {
             title: contentText.substring(0, 50) + (contentText.length > 50 ? "..." : ""),
             content: generatedContent,
             createdAt: serverTimestamp(),
-            language: language,
+            language: contentLanguage,
         })
         toast({ title: t("Content Saved!"), description: t("You can now assign it from 'My Content'.")})
     } catch (error) {
@@ -298,8 +307,21 @@ export default function CreateContentPage() {
         <h1 className="text-3xl font-bold font-headline">{t("Create Content")}</h1>
         <p className="text-muted-foreground">{t("Your creative toolkit for the classroom.")}</p>
       </div>
-      <Tabs defaultValue="hyper-local" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="md:hidden mb-4">
+            <Select onValueChange={setActiveTab} value={activeTab}>
+                <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("Select a creation tool")} />
+                </SelectTrigger>
+                <SelectContent>
+                <SelectItem value="hyper-local">{t("Hyper-Local Content")}</SelectItem>
+                <SelectItem value="differentiated">{t("Differentiated Materials")}</SelectItem>
+                <SelectItem value="visual-aid">{t("Visual Aid Designer")}</SelectItem>
+                <SelectItem value="game-generator">{t("Game Generator")}</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+        <TabsList className="hidden md:grid w-full grid-cols-4">
           <TabsTrigger value="hyper-local">{t("Hyper-Local Content")}</TabsTrigger>
           <TabsTrigger value="differentiated">{t("Differentiated Materials")}</TabsTrigger>
           <TabsTrigger value="visual-aid">{t("Visual Aid Designer")}</TabsTrigger>
@@ -329,7 +351,7 @@ export default function CreateContentPage() {
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="content-type">{t("Content Type")}</Label>
                   <Select onValueChange={setContentType} value={contentType}>
@@ -341,6 +363,22 @@ export default function CreateContentPage() {
                       <SelectItem value="explanation">{t("Explanation")}</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="content-language">{t("Output Language")}</Label>
+                    <Select onValueChange={setContentLanguage} value={contentLanguage}>
+                        <SelectTrigger id="content-language">
+                        <SelectValue placeholder={t("Select language")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="english">English</SelectItem>
+                            <SelectItem value="hindi">Hindi</SelectItem>
+                            <SelectItem value="bengali">Bengali</SelectItem>
+                            <SelectItem value="marathi">Marathi</SelectItem>
+                            <SelectItem value="telugu">Telugu</SelectItem>
+                            <SelectItem value="tamil">Tamil</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
               </div>
               <Button className="w-full" onClick={handleGenerateContent} disabled={isGeneratingContent}>

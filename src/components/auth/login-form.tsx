@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -5,8 +6,8 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore"; // Import getDoc
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,27 +65,29 @@ export function LoginForm() {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Retrieve user role from Firestore
       const userDocRef = doc(db, "users", user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
-      let userRole: string = "student"; // Default to student if role not found
-
       if (userDocSnap.exists()) {
-        userRole = userDocSnap.data()?.role || "student"; // Get role, default to student
+        const userRole = userDocSnap.data()?.role || "student";
+        toast({
+          title: t("Login Successful"),
+          description: t("Welcome back! Redirecting..."),
+        });
+        router.push(`/dashboard/${userRole}`);
+        router.refresh();
       } else {
-        console.warn("User document not found in Firestore. Defaulting role to student.");
+        // This is an inconsistent state, likely from an incomplete signup.
+        // Sign the user out and guide them to sign up again.
+        await signOut(auth);
+        toast({
+          title: t("Incomplete Registration"),
+          description: t("Your previous registration was incomplete. Please sign up again."),
+          variant: "destructive",
+          duration: 5000,
+        });
+        router.push('/signup');
       }
-
-
-      toast({
-        title: t("Login Successful"),
-        description: t("Welcome back! Redirecting..."),
-      });
-
-      router.push(`/dashboard/${userRole}`);
-      router.refresh();
-
     } catch (error: any) {
       toast({
         title: t("Login Failed"),

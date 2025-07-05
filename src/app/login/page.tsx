@@ -11,14 +11,26 @@ import { Logo } from '@/components/logo'
 import { useAuth } from '@/hooks/use-auth'
 import Link from 'next/link'
 import { useTranslation } from '@/hooks/use-translation'
+<<<<<<< HEAD
 import { db, auth } from '@/lib/firebase'
 import { useToast } from '@/hooks/use-toast'
+=======
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Loader2 } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
+>>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
 
 export default function LoginPage() {
   const { user, loading: authLoading } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()
   const { toast } = useToast()
+<<<<<<< HEAD
   const [isCheckingRole, setIsCheckingRole] = useState(true)
 
   useEffect(() => {
@@ -75,14 +87,54 @@ export default function LoginPage() {
   }, [user, authLoading, router, t, toast]);
 
   if (authLoading || isCheckingRole) {
+=======
+
+  useEffect(() => {
+    const checkUserAndRedirect = async () => {
+      if (user && db) {
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userRole = userDoc.data()?.role || 'student';
+            router.push(`/dashboard/${userRole}`);
+            router.refresh();
+          } else {
+            console.error("Authentication error: User document not found for UID:", user.uid);
+            await signOut(auth);
+            toast({
+              title: t("Incomplete Registration"),
+              description: t("Your previous registration was incomplete. Please sign up again."),
+              variant: "destructive",
+              duration: 5000,
+            });
+            router.push('/signup'); 
+          }
+        } catch (error) {
+           console.error("Error checking user document:", error);
+           await signOut(auth);
+           router.push('/');
+        }
+      }
+    };
+    checkUserAndRedirect();
+  }, [user, db, router, t, toast]);
+
+
+  if (loading || user) {
+>>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
     return (
       <div className="flex h-screen w-screen items-center justify-center">
-        {t("Loading...")}
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
+<<<<<<< HEAD
   // If we're done loading and checking, and there's no user, show the form.
+=======
+
+>>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">

@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { useRouter } from "next/navigation"
 import React, { useState } from "react"
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { createUserWithEmailAndPassword, updateProfile, signOut } from "firebase/auth"
 import { doc, setDoc, getDoc, runTransaction } from "firebase/firestore"
 
 import { Button } from "@/components/ui/button"
@@ -32,33 +32,27 @@ import { auth, db } from "@/lib/firebase"
 import { Loader2 } from "lucide-react"
 import { useTranslation } from "@/hooks/use-translation"
 
-
-// Schemas
-const loginSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-});
-
-const teacherSignUpSchema = loginSchema.extend({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  school: z.string().min(3, { message: "School name is required." }),
-  language: z.string({ required_error: "Please select a language." }),
-})
-
-const studentSignUpSchema = loginSchema.extend({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  school: z.string().min(3, { message: "School name is required." }),
-  grade: z.string({ required_error: "Please select your grade." }),
-  teacherCode: z.string().length(6, { message: "Teacher code must be 6 characters." }),
-  language: z.string({ required_error: "Please select a language." }),
-})
-
 type UserRole = "teacher" | "student"
 
 function generateTeacherCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase()
 }
 
+// Schemas
+const baseSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  email: z.string().email({ message: "Please enter a valid email." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  school: z.string().min(3, { message: "School name is required." }),
+  language: z.string({ required_error: "Please select a language." }),
+});
+
+const teacherSignUpSchema = baseSchema;
+
+const studentSignUpSchema = baseSchema.extend({
+  grade: z.string({ required_error: "Please select your grade." }),
+  teacherCode: z.string().length(6, { message: "Teacher code must be 6 characters." }),
+})
 
 interface SignUpFormProps {
     role: UserRole;
@@ -75,14 +69,26 @@ export function SignUpForm({ role }: SignUpFormProps) {
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
-      name: "",
       school: "",
       language: undefined,
       ...(role === "student" && { grade: undefined, teacherCode: "" }),
     },
   })
+
+  // This handles the case where a user is authenticated but doesn't have a DB record.
+  // We sign them out so they can reuse their email to sign up properly.
+  React.useEffect(() => {
+    if (auth?.currentUser && db) {
+        getDoc(doc(db, "users", auth.currentUser.uid)).then(docSnap => {
+            if (!docSnap.exists()) {
+                signOut(auth);
+            }
+        });
+    }
+  }, []);
 
   const onFormSubmit = async (values: z.infer<typeof signupSchema>) => {
     if (!auth || !db) {
@@ -123,7 +129,18 @@ export function SignUpForm({ role }: SignUpFormProps) {
 
         if (role === 'teacher') {
             const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
-            const newTeacherCode = generateTeacherCode();
+            // Ensure teacher code is unique
+            let newTeacherCode = generateTeacherCode();
+            let codeExists = true;
+            while(codeExists) {
+                const codeDoc = await getDoc(doc(db, "teacherCodes", newTeacherCode));
+                if (!codeDoc.exists()) {
+                    codeExists = false;
+                } else {
+                    newTeacherCode = generateTeacherCode();
+                }
+            }
+
             const teacherData = {
                 uid: user.uid,
                 name: teacherValues.name,
@@ -135,12 +152,13 @@ export function SignUpForm({ role }: SignUpFormProps) {
             };
             const userDocRef = doc(db, "users", user.uid);
             const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
-            // Use a transaction to ensure both user and code documents are created together
+
+            // Use a transaction to ensure both documents are created or neither are.
             await runTransaction(db, async (transaction) => {
                 transaction.set(userDocRef, teacherData);
                 transaction.set(codeDocRef, { teacherId: user.uid });
             });
-        } else { // student
+        } else {
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
             const studentData = {
                 uid: user.uid,
@@ -150,7 +168,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 school: studentValues.school,
                 language: studentValues.language,
                 grade: studentValues.grade,
-                teacherId: teacherId, // This is validated and retrieved before this step
+                teacherId: teacherId, 
             };
             await setDoc(doc(db, "users", user.uid), studentData);
         }
@@ -162,16 +180,10 @@ export function SignUpForm({ role }: SignUpFormProps) {
         router.push(`/dashboard/${role}`);
         router.refresh();
       } catch (error: any) {
-        if (error.code === 'unavailable' || (error.message && error.message.toLowerCase().includes('offline'))) {
-            toast({
-                title: t("Network Error"),
-                description: t("Could not connect to the server. Please check your connection and try again."),
-                variant: "destructive",
-            });
-        } else if (error.code === 'auth/email-already-in-use') {
+        if (error.code === 'auth/email-already-in-use') {
             toast({
                 title: t("Sign Up Failed"),
-                description: t("This email is already registered."),
+                description: t("This email is already registered. Please try logging in."),
                 variant: "destructive",
             });
         } else {
@@ -182,9 +194,9 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 variant: "destructive",
             });
         }
+      } finally {
+        setIsLoading(false);
       }
-
-    setIsLoading(false);
   }
 
   return (
@@ -201,6 +213,32 @@ export function SignUpForm({ role }: SignUpFormProps) {
                       <FormLabel>{t("Name")}</FormLabel>
                       <FormControl>
                         <Input placeholder={t("Your full name")} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("Email")}</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="you@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("Password")}</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -234,16 +272,9 @@ export function SignUpForm({ role }: SignUpFormProps) {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="Grade 1">{t("Grade 1")}</SelectItem>
-                              <SelectItem value="Grade 2">{t("Grade 2")}</SelectItem>
-                              <SelectItem value="Grade 3">{t("Grade 3")}</SelectItem>
-                              <SelectItem value="Grade 4">{t("Grade 4")}</SelectItem>
-                              <SelectItem value="Grade 5">{t("Grade 5")}</SelectItem>
-                              <SelectItem value="Grade 6">{t("Grade 6")}</SelectItem>
-                              <SelectItem value="Grade 7">{t("Grade 7")}</SelectItem>
-                              <SelectItem value="Grade 8">{t("Grade 8")}</SelectItem>
-                              <SelectItem value="Grade 9">{t("Grade 9")}</SelectItem>
-                              <SelectItem value="Grade 10">{t("Grade 10")}</SelectItem>
+                              {[...Array(10)].map((_, i) => (
+                                <SelectItem key={i+1} value={`Grade ${i+1}`}>{t(`Grade ${i+1}`)}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -277,7 +308,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                   name="language"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("Local Language")}</FormLabel>
+                      <FormLabel>{t("Preferred Language")}</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -285,6 +316,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="english">English</SelectItem>
                           <SelectItem value="hindi">Hindi</SelectItem>
                           <SelectItem value="bengali">Bengali</SelectItem>
                           <SelectItem value="marathi">Marathi</SelectItem>
@@ -292,32 +324,6 @@ export function SignUpForm({ role }: SignUpFormProps) {
                           <SelectItem value="tamil">Tamil</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("Email")}</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="you@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("Password")}</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

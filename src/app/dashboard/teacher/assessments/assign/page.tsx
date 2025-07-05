@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Loader2, Upload, Wand2 } from "lucide-react"
+import { ArrowLeft, Loader2, Upload, Wand2, ChevronDown } from "lucide-react"
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore"
 import { useRouter } from "next/navigation"
 
@@ -20,7 +20,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/hooks/use-auth"
 import { useTranslation } from "@/hooks/use-translation"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Accordion, AccordionContent, AccordionItem } from "@/components/ui/accordion"
+import * as AccordionPrimitive from "@radix-ui/react-accordion"
+
 
 interface Student {
   id: string
@@ -258,18 +260,22 @@ export default function AssignAssessmentPage() {
 
                     return (
                       <AccordionItem value={grade} key={grade}>
-                        <AccordionTrigger className="py-2 px-2 hover:no-underline">
-                          <div className="flex items-center space-x-3 w-full">
-                            <Checkbox
-                              id={`select-grade-${grade}`}
-                              checked={allInGradeSelected}
-                              onCheckedChange={(checked) => handleSelectGrade(grade, checked)}
-                              onClick={(e) => e.stopPropagation()} // Prevent trigger from firing
-                              aria-label={`Select all students in grade ${grade}`}
-                            />
-                            <Label htmlFor={`select-grade-${grade}`} className="font-semibold text-base cursor-pointer">{t("Grade")} {grade}</Label>
-                          </div>
-                        </AccordionTrigger>
+                        <AccordionPrimitive.Header className="flex items-center px-2 py-1">
+                            <div className="flex items-center space-x-3 flex-1 p-2">
+                                <Checkbox
+                                    id={`select-grade-${grade}`}
+                                    checked={allInGradeSelected}
+                                    onCheckedChange={(checked) => handleSelectGrade(grade, checked)}
+                                    aria-label={`Select all students in grade ${grade}`}
+                                />
+                                <Label htmlFor={`select-grade-${grade}`} className="font-semibold text-base flex-1 cursor-pointer">
+                                    {t("Grade")} {grade}
+                                </Label>
+                            </div>
+                            <AccordionPrimitive.Trigger className="p-2 rounded-sm hover:bg-accent">
+                                <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 data-[state=open]:rotate-180" />
+                            </AccordionPrimitive.Trigger>
+                        </AccordionPrimitive.Header>
                         <AccordionContent>
                           <div className="space-y-2 pt-2 pl-10">
                             {studentsInGrade.map(student => (
