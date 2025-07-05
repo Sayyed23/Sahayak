@@ -60,7 +60,6 @@ const prompt = ai.definePrompt({
   Audio Recording:
   {{media url=audioDataUri}}
 
-<<<<<<< HEAD
   CRITICAL INSTRUCTIONS:
   Your response MUST be a single JSON object that strictly conforms to the output schema. Do not include any other text, markdown, or formatting.
 
@@ -90,22 +89,6 @@ const prompt = ai.definePrompt({
       "insertions": 0
     }
   }`,
-=======
-  Please perform the following analysis and return it in the specified JSON format:
-  1.  **Word-by-Word Analysis:** Go through the original passage word by word and compare it to the student's audio. For each word, determine its status:
-      - **correct:** The word was read correctly.
-      - **mispronunciation:** The word was read, but pronounced incorrectly.
-      - **substitution:** The word was replaced by a different word.
-      - **omission:** The word was skipped entirely.
-      - **insertion:** The student added a word that was not in the text.
-  2.  **Timestamps:** For every word that was actually spoken (including correct words, mispronunciations, substitutions, and insertions), you **must** provide its 'startTime' and 'endTime' in seconds from the beginning of the audio. Omitted words will not have timestamps.
-  3.  **Spoken Word:** For substitutions and mispronunciations, provide the actual word the student said in the 'spokenWord' field.
-  4.  **Overall Metrics:**
-      - Calculate the student's reading fluency in Words Per Minute (WPM).
-      - Calculate the pronunciation accuracy as a percentage.
-
-  The final output must be a single JSON object. This object MUST contain the top-level properties: 'fluencyWPM', 'accuracyPercentage', and 'analysis'. The 'analysis' array must contain an object for each word in the original passage, in order, with insertions added at the points they occurred. Be precise and thorough.`,
->>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
 });
 
 
