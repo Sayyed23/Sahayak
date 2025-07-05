@@ -59,13 +59,13 @@ const prompt = ai.definePrompt({
       - **substitution:** The word was replaced by a different word.
       - **omission:** The word was skipped entirely.
       - **insertion:** The student added a word that was not in the text.
-  2.  **Timestamps:** For every word that was actually spoken (including correct words, mispronunciations, substitutions, and insertions), provide its start and end time in seconds from the beginning of the audio. Omitted words will not have timestamps.
+  2.  **Timestamps:** For every word that was actually spoken (including correct words, mispronunciations, substitutions, and insertions), you **must** provide its 'startTime' and 'endTime' in seconds from the beginning of the audio. Omitted words will not have timestamps.
   3.  **Spoken Word:** For substitutions and mispronunciations, provide the actual word the student said in the 'spokenWord' field.
   4.  **Overall Metrics:**
       - Calculate the student's reading fluency in Words Per Minute (WPM).
       - Calculate the pronunciation accuracy as a percentage.
 
-  The final output should be a JSON object containing the fluency, accuracy, and an 'analysis' array. This array must contain an object for each word in the original passage, in order, with insertions added at the points they occurred. Be precise and thorough.`,
+  The final output must be a single JSON object. This object MUST contain the top-level properties: 'fluencyWPM', 'accuracyPercentage', and 'analysis'. The 'analysis' array must contain an object for each word in the original passage, in order, with insertions added at the points they occurred. Be precise and thorough.`,
 });
 
 
