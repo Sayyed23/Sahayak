@@ -52,20 +52,27 @@ const prompt = ai.definePrompt({
   Audio Recording:
   {{media url=audioDataUri}}
 
-  Please perform the following analysis and return it in the specified JSON format:
-  1.  **Word-by-Word Analysis:** Go through the original passage word by word and compare it to the student's audio. For each word, determine its status:
-      - **correct:** The word was read correctly.
-      - **mispronunciation:** The word was read, but pronounced incorrectly.
-      - **substitution:** The word was replaced by a different word.
-      - **omission:** The word was skipped entirely.
-      - **insertion:** The student added a word that was not in the text.
-  2.  **Timestamps:** For every word that was actually spoken (including correct words, mispronunciations, substitutions, and insertions), provide its start and end time in seconds from the beginning of the audio. Omitted words will not have timestamps.
-  3.  **Spoken Word:** For substitutions and mispronunciations, provide the actual word the student said in the 'spokenWord' field.
-  4.  **Overall Metrics:**
-      - Calculate the student's reading fluency in Words Per Minute (WPM).
-      - Calculate the pronunciation accuracy as a percentage.
+  CRITICAL INSTRUCTIONS:
+  Your response MUST be a single JSON object that strictly conforms to the output schema. Do not include any other text, markdown, or formatting.
 
-  The final output should be a JSON object containing the fluency, accuracy, and an 'analysis' array. This array must contain an object for each word in the original passage, in order, with insertions added at the points they occurred. Be precise and thorough.`,
+  Perform the following analysis:
+  1.  **Calculate Fluency (WPM):** You MUST calculate the student's reading fluency in Words Per Minute (WPM) and include it in the 'fluencyWPM' field.
+  2.  **Calculate Accuracy:** Calculate the pronunciation accuracy as a percentage.
+  3.  **Word-by-Word Analysis:** Go through the original passage word by word and compare it to the student's audio.
+      - For each word, determine its 'status': "correct", "mispronunciation", "substitution", "omission", or "insertion".
+      - **For every spoken word (correct, mispronunciation, substitution, insertion), you MUST provide both a 'startTime' and 'endTime' in seconds.** Omitted words will not have timestamps.
+      - For 'substitution' or 'mispronunciation', provide the word the student actually said in the 'spokenWord' field.
+  4.  **Format the Output:** The final output must be a single JSON object containing the 'fluencyWPM', 'accuracyPercentage', and an 'analysis' array. This array must contain an object for each word in the original passage, in order, with insertions added at the points they occurred. Be precise and thorough.
+
+  Example of a valid response format:
+  {
+    "fluencyWPM": 85,
+    "accuracyPercentage": 95.2,
+    "analysis": [
+      { "word": "The", "status": "correct", "startTime": 0.1, "endTime": 0.4 },
+      { "word": "quick", "status": "mispronunciation", "startTime": 0.5, "endTime": 0.8, "spokenWord": "quack" }
+    ]
+  }`,
 });
 
 
