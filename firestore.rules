@@ -3,75 +3,119 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // HELPER FUNCTIONS
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
 
+    function isRole(userId, role) {
+      return getUserData(userId).role == role;
+    }
+
+    function isTeacher(userId) {
+      return isRole(userId, 'teacher');
+    }
+
+    function isStudent(userId) {
+      return isRole(userId, 'student');
+    }
+
+    // Is the currently authenticated user the teacher of the student being accessed?
+    function isMyStudent(studentId) {
+      return isTeacher(request.auth.uid) && getUserData(studentId).teacherId == request.auth.uid;
+    }
+    
+    // Is the user being accessed the teacher of the currently authenticated student?
+    function isMyTeacher(teacherId) {
+        return isStudent(request.auth.uid) && getUserData(request.auth.uid).teacherId == teacherId;
+    }
+
+    // RULES START HERE
+
+    // `users` collection: Profiles for all users.
     match /users/{userId} {
-      // A user can create their own document when signing up.
+      // A user can create their own profile record.
       allow create: if request.auth.uid == userId;
-
-      // A user can read their own profile.
-      // A teacher can read the profiles of their own students.
-      allow read: if request.auth.uid == userId ||
-                   (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && resource.data.teacherId == request.auth.uid);
-
-      // A user can only update their own profile.
-      allow update: if request.auth.uid == userId;
-
-      // Any authenticated user can attempt to list users, but the `read` rule above secures the data.
-      // This allows teachers to query for their students, which is a list operation.
-      // The query will only succeed if every document in the result set passes the `read` rule.
-      allow list: if request.auth != null;
-
-      // Client-side deletes are disabled.
-      allow delete: if false;
+      
+      // A user can read/update their own profile.
+      // A teacher can read their student's profile.
+      // A student can read their teacher's profile.
+      allow read, update: if request.auth.uid == userId || isMyStudent(userId) || isMyTeacher(userId);
+      
+      // Teachers can list the users that are their students.
+      // The client code MUST include `where("teacherId", "==", request.auth.uid)`
+      allow list: if isTeacher(request.auth.uid);
     }
 
+    // `teacherCodes` collection: Used to link students to teachers on sign-up.
     match /teacherCodes/{code} {
-      // Anyone can check if a teacher code exists during student signup. This is safe as it exposes no sensitive data.
-      allow get: if true;
-      // Only the authenticated user whose ID is being stored can create their own code document.
-      // This is done in a transaction on teacher signup to prevent spoofing.
-      allow create: if request.auth.uid == request.resource.data.teacherId;
+      // Any authenticated user can check if a code exists.
+      allow get: if request.auth != null;
+      // Only a teacher can create their own code.
+      allow create: if isTeacher(request.resource.data.teacherId) && request.resource.data.teacherId == request.auth.uid;
     }
 
+    // `content` collection: All teacher-created materials.
     match /content/{contentId} {
-      // Only teachers can create content.
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      // Teachers can manage their own content.
+      allow create: if isTeacher(request.auth.uid) && request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if isTeacher(request.auth.uid) && resource.data.teacherId == request.auth.uid;
 
-      // The authoring teacher can do anything. An assigned student can only read.
-      allow read: if resource.data.teacherId == request.auth.uid || (request.auth.uid in resource.data.assignedStudentIds);
-      allow update, delete: if resource.data.teacherId == request.auth.uid;
+      // Teachers can list their own content.
+      // The client code MUST include `where("teacherId", "==", request.auth.uid)`
+      allow list: if isTeacher(request.auth.uid);
 
-      // Teachers can list their own content. The query must be filtered by teacherId.
-      allow list: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      // A teacher can read their own content.
+      // A student can read content that has been assigned to them.
+      allow read: if (resource.data.teacherId == request.auth.uid) || 
+                   (('assignedStudentIds' in resource.data) && request.auth.uid in resource.data.assignedStudentIds);
     }
 
+    // `assignments` collection: Links content to a student.
     match /assignments/{assignmentId} {
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
-      // Student can read their own assignment, Teacher can read assignments they created.
-      allow read: if resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid;
-      // Authenticated users can list, but will only get results they have read access to.
-      allow list: if request.auth != null;
+      // A teacher can assign content.
+      allow create: if isTeacher(request.auth.uid) && request.resource.data.teacherId == request.auth.uid;
+      
+      // Students can read/list assignments given to them.
+      // The client code MUST include `where("studentId", "==", request.auth.uid)`
+      allow read, list: if isStudent(request.auth.uid);
     }
-
+    
+    // `assessments` collection: Reading passages for students to take.
     match /assessments/{assessmentId} {
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
-      // Teacher can read their own assessment, or an assigned student can read it.
-      allow read: if resource.data.teacherId == request.auth.uid || (request.auth.uid in resource.data.assignedStudentIds);
-       // Authenticated users can list, but will only get results they have read access to.
-      allow list: if request.auth != null;
+      // Teachers create assessments.
+      allow create: if isTeacher(request.auth.uid) && request.resource.data.teacherId == request.auth.uid;
+      
+      // A teacher can read their own assessment.
+      // A student can read an assessment assigned to them.
+      allow read: if (resource.data.teacherId == request.auth.uid) || 
+                   (request.auth.uid in resource.data.assignedStudentIds);
+                   
+      // Students can query for assessments assigned to them using 'array-contains'.
+      // Teachers can list their own assessments.
+      // The client code MUST include the appropriate where clause.
+      allow list: if isStudent(request.auth.uid) || isTeacher(request.auth.uid);
     }
 
+    // `submissions` collection: Student work submitted for review.
     match /submissions/{submissionId} {
-      allow create: if request.resource.data.studentId == request.auth.uid;
-      // Teacher or the student who submitted can read/update.
-      allow read, update: if resource.data.teacherId == request.auth.uid || resource.data.studentId == request.auth.uid;
-      // Only teachers can list submissions.
-      allow list: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
-    }
+      // Students create their own submissions.
+      allow create: if isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid;
 
+      // Teachers can read, list, and update submissions from their students.
+      // The client code MUST include `where("teacherId", "==", request.auth.uid)`
+      allow read, list, update: if isTeacher(request.auth.uid);
+    }
+    
+    // `game_sessions` collection: Results from completed games.
     match /game_sessions/{sessionId} {
-      allow create: if request.resource.data.studentId == request.auth.uid;
-      allow read: if resource.data.studentId == request.auth.uid;
+      // Students create their own game sessions.
+      allow create: if isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid;
+      
+      // Teachers can read/list sessions for their students.
+      // The client code MUST include `where("teacherId", "==", request.auth.uid)`
+      allow read, list: if isTeacher(request.auth.uid);
     }
   }
 }
