@@ -81,8 +81,8 @@ export function SignUpForm({ role }: SignUpFormProps) {
   // This handles the case where a user is authenticated but doesn't have a DB record.
   // We sign them out so they can reuse their email to sign up properly.
   React.useEffect(() => {
-    if (auth?.currentUser) {
-        getDoc(doc(db!, "users", auth.currentUser.uid)).then(docSnap => {
+    if (auth?.currentUser && db) {
+        getDoc(doc(db, "users", auth.currentUser.uid)).then(docSnap => {
             if (!docSnap.exists()) {
                 signOut(auth);
             }
@@ -129,7 +129,18 @@ export function SignUpForm({ role }: SignUpFormProps) {
 
         if (role === 'teacher') {
             const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
-            const newTeacherCode = generateTeacherCode();
+            // Ensure teacher code is unique
+            let newTeacherCode = generateTeacherCode();
+            let codeExists = true;
+            while(codeExists) {
+                const codeDoc = await getDoc(doc(db, "teacherCodes", newTeacherCode));
+                if (!codeDoc.exists()) {
+                    codeExists = false;
+                } else {
+                    newTeacherCode = generateTeacherCode();
+                }
+            }
+
             const teacherData = {
                 uid: user.uid,
                 name: teacherValues.name,
@@ -141,6 +152,8 @@ export function SignUpForm({ role }: SignUpFormProps) {
             };
             const userDocRef = doc(db, "users", user.uid);
             const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
+
+            // Use a transaction to ensure both documents are created or neither are.
             await runTransaction(db, async (transaction) => {
                 transaction.set(userDocRef, teacherData);
                 transaction.set(codeDocRef, { teacherId: user.uid });
