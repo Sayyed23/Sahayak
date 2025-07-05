@@ -154,7 +154,7 @@ export default function TakeAssessmentPage() {
             teacherId: passage.teacherId,
             submittedAt: serverTimestamp(),
             report: analysisResult,
-            audioUrl: '', // In a real app we'd upload the audio to Cloud Storage and save the URL here.
+            audioUrl: audioDataUri, // Save the audio recording for teacher review
             status: 'pending_review',
             submissionType: 'reading',
         });

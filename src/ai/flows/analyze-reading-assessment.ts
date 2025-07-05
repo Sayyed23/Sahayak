@@ -51,7 +51,7 @@ const prompt = ai.definePrompt({
   model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: AnalyzeReadingAssessmentInputSchema},
   output: {schema: AnalyzeReadingAssessmentOutputSchema},
-  prompt: `You are an expert reading assessment analyst. Your task is to analyze a student's audio recording against a given passage text and provide a detailed analysis in JSON format.
+  prompt: `You are an expert reading assessment analyst. Your task is to analyze a student's audio recording against a given passage text and provide a detailed analysis.
 
   **Passage Text:**
   ---
@@ -67,7 +67,7 @@ const prompt = ai.definePrompt({
   2.  **Accuracy Percentage:** Calculate the pronunciation accuracy as a percentage.
   3.  **Word-by-Word Analysis:** Compare the audio to the text word by word.
       - Classify each word's status: "correct", "mispronunciation", "substitution", "omission", or "insertion".
-      - **Crucially, for every word spoken in the audio (correct, mispronounced, substituted, or inserted), you MUST provide its 'startTime' and 'endTime' in seconds.** Omissions will not have timestamps.
+      - **For every word spoken in the audio (correct, mispronounced, substituted, or inserted), you MUST provide its 'startTime' and 'endTime' in seconds.** Omissions will not have timestamps.
   4.  **Error Summary:** Count the total number of mispronunciations, substitutions, omissions, and insertions.
 
   **Output Command:**
