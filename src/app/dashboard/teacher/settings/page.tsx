@@ -11,57 +11,50 @@ import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
-import { doc, onSnapshot, setDoc } from "firebase/firestore"
+import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { Copy } from "lucide-react"
+import { Copy, Loader2 } from "lucide-react"
 import { useTranslation } from "@/hooks/use-translation"
 
-function generateTeacherCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase()
-}
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const { toast } = useToast()
   const { t, language, setLanguage } = useTranslation()
   const [teacherCode, setTeacherCode] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+
+  const [name, setName] = useState(user?.displayName || "")
+  const [school, setSchool] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (user && db) {
-      const teacherRef = doc(db, "users", user.uid)
-      const unsubscribe = onSnapshot(teacherRef, (docSnap) => {
+      const userRef = doc(db, "users", user.uid)
+      const unsubscribe = onSnapshot(userRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data()
-          if (data.teacherCode) {
-            setTeacherCode(data.teacherCode)
-          } else {
-            // If teacher exists but has no code, generate and save one.
-            // This handles legacy users who signed up before the code feature.
-            const newCode = generateTeacherCode()
-            setDoc(teacherRef, { teacherCode: newCode }, { merge: true })
-              .catch((err) => {
-                console.error("Error generating teacher code:", err)
-                toast({
-                  title: t("Error"),
-                  description: t("Could not generate a teacher code. Please try again."),
-                  variant: "destructive"
-                })
-              })
-            // The listener will automatically pick up the new code and update the state.
+          setTeacherCode(data.teacherCode || "")
+          setName(data.name || "")
+          setSchool(data.school || "")
+          if (data.language && data.language !== language) {
+            setLanguage(data.language);
           }
         }
+        setIsLoading(false)
       }, (error) => {
-        console.error("Error fetching teacher code:", error);
+        console.error("Error fetching user data:", error);
         toast({
             title: t("Error"),
-            description: t("Could not load teacher code."),
+            description: t("Could not load your profile data."),
             variant: "destructive"
         })
+        setIsLoading(false)
       });
 
-      return () => unsubscribe(); // Cleanup listener on unmount
+      return () => unsubscribe();
     }
-  }, [user, t, toast])
+  }, [user, t, toast, language, setLanguage])
 
   const handleCopyCode = () => {
     if (!teacherCode) return;
@@ -72,8 +65,45 @@ export default function SettingsPage() {
     })
   }
 
+  const handleSaveChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !db) return;
+
+    setIsSaving(true);
+    try {
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, {
+            name: name,
+            school: school,
+            language: language,
+        });
+        if(user.displayName !== name) {
+            // This is an async operation, but we don't need to wait for it
+            import('firebase/auth').then(({ updateProfile }) => updateProfile(user, { displayName: name }));
+        }
+        toast({
+            title: t("Profile Updated"),
+            description: t("Your changes have been saved successfully."),
+        });
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        toast({
+            title: t("Error"),
+            description: t("Failed to save your changes."),
+            variant: "destructive",
+        });
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+
+  if (isLoading) {
+    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
+
   if (!user) {
-    return <div>{t("Loading settings...")}</div>
+    return <div>{t("Please log in to view settings.")}</div>
   }
   
   return (
@@ -85,39 +115,44 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>{t("My Profile")}</CardTitle>
-            <CardDescription>{t("Update your personal information.")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">{t("Name")}</Label>
-              <Input id="name" defaultValue={user.displayName || ""} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">{t("Email")}</Label>
-              <Input id="email" type="email" defaultValue={user.email || ""} disabled />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="school">{t("School")}</Label>
-              <Input id="school" defaultValue="Govt. Model School" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="language">{t("Language Preference")}</Label>
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger id="language"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="english">English</SelectItem>
-                    <SelectItem value="hindi">Hindi</SelectItem>
-                    <SelectItem value="bengali">Bengali</SelectItem>
-                    <SelectItem value="marathi">Marathi</SelectItem>
-                    <SelectItem value="telugu">Telugu</SelectItem>
-                    <SelectItem value="tamil">Tamil</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button>{t("Save Changes")}</Button>
-          </CardContent>
+          <form onSubmit={handleSaveChanges}>
+            <CardHeader>
+              <CardTitle>{t("My Profile")}</CardTitle>
+              <CardDescription>{t("Update your personal information.")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">{t("Name")}</Label>
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">{t("Email")}</Label>
+                <Input id="email" type="email" value={user.email || ""} disabled />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="school">{t("School")}</Label>
+                <Input id="school" value={school} onChange={(e) => setSchool(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="language">{t("Language Preference")}</Label>
+                <Select value={language} onValueChange={setLanguage}>
+                  <SelectTrigger id="language"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="english">English</SelectItem>
+                      <SelectItem value="hindi">Hindi</SelectItem>
+                      <SelectItem value="bengali">Bengali</SelectItem>
+                      <SelectItem value="marathi">Marathi</SelectItem>
+                      <SelectItem value="telugu">Telugu</SelectItem>
+                      <SelectItem value="tamil">Tamil</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t("Save Changes")}
+              </Button>
+            </CardContent>
+          </form>
         </Card>
 
         <div className="space-y-6">

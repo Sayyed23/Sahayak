@@ -11,25 +11,45 @@ import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Loader2 } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const { user, loading } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()
+  const { toast } = useToast()
 
   useEffect(() => {
-    if (user && db) {
-      const userDocRef = doc(db, 'users', user.uid);
-      getDoc(userDocRef).then(userDoc => {
-        if (userDoc.exists()) {
-          const userRole = userDoc.data()?.role || 'student';
-          router.replace(`/dashboard/${userRole}`);
-        } else {
-            console.warn("User authenticated but no Firestore document found.");
+    const checkUserAndRedirect = async () => {
+      if (user && db) {
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userRole = userDoc.data()?.role || 'student';
+            router.replace(`/dashboard/${userRole}`);
+          } else {
+            console.error("Authentication error: User document not found for UID:", user.uid);
+            await signOut(auth);
+            toast({
+              title: t("Incomplete Registration"),
+              description: t("Your previous registration was incomplete. Please sign up again."),
+              variant: "destructive",
+              duration: 5000,
+            });
+            router.replace('/signup'); 
+          }
+        } catch (error) {
+           console.error("Error checking user document:", error);
+           await signOut(auth);
+           router.replace('/');
         }
-      });
-    }
-  }, [user, db, router]);
+      }
+    };
+    checkUserAndRedirect();
+  }, [user, db, router, t, toast]);
 
 
   if (loading || user) {
