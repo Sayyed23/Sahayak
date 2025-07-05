@@ -11,11 +11,7 @@ import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
-<<<<<<< HEAD
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore"
-=======
 import { doc, getDoc, updateDoc } from "firebase/firestore"
->>>>>>> 068d3fff1ebaa035e444337644b56c698b9ce125
 import { useToast } from "@/hooks/use-toast"
 import { Copy, Loader2 } from "lucide-react"
 import { useTranslation } from "@/hooks/use-translation"
@@ -25,13 +21,10 @@ import * as z from "zod"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Skeleton } from "@/components/ui/skeleton"
 
-<<<<<<< HEAD
-=======
 const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   school: z.string().min(3, { message: "School name is required." }),
 })
->>>>>>> 068d3fff1ebaa035e444337644b56c698b9ce125
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -40,40 +33,6 @@ export default function SettingsPage() {
   
   const [teacherCode, setTeacherCode] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-<<<<<<< HEAD
-
-  const [name, setName] = useState(user?.displayName || "")
-  const [school, setSchool] = useState("")
-  const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    if (user && db) {
-      const userRef = doc(db, "users", user.uid)
-      const unsubscribe = onSnapshot(userRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data()
-          setTeacherCode(data.teacherCode || "")
-          setName(data.name || "")
-          setSchool(data.school || "")
-          if (data.language && data.language !== language) {
-            setLanguage(data.language);
-          }
-        }
-        setIsLoading(false)
-      }, (error) => {
-        console.error("Error fetching user data:", error);
-        toast({
-            title: t("Error"),
-            description: t("Could not load your profile data."),
-            variant: "destructive"
-        })
-        setIsLoading(false)
-      });
-
-      return () => unsubscribe();
-    }
-  }, [user, t, toast, language, setLanguage])
-=======
   const [isSaving, setIsSaving] = useState(false)
 
   const form = useForm<z.infer<typeof profileSchema>>({
@@ -130,7 +89,6 @@ export default function SettingsPage() {
       setIsSaving(false)
     }
   }
->>>>>>> 068d3fff1ebaa035e444337644b56c698b9ce125
 
   const handleCopyCode = () => {
     if (!teacherCode) return;
@@ -141,47 +99,6 @@ export default function SettingsPage() {
     })
   }
 
-<<<<<<< HEAD
-  const handleSaveChanges = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !db) return;
-
-    setIsSaving(true);
-    try {
-        const userRef = doc(db, "users", user.uid);
-        await updateDoc(userRef, {
-            name: name,
-            school: school,
-            language: language,
-        });
-        if(user.displayName !== name) {
-            // This is an async operation, but we don't need to wait for it
-            import('firebase/auth').then(({ updateProfile }) => updateProfile(user, { displayName: name }));
-        }
-        toast({
-            title: t("Profile Updated"),
-            description: t("Your changes have been saved successfully."),
-        });
-    } catch (error) {
-        console.error("Error updating profile:", error);
-        toast({
-            title: t("Error"),
-            description: t("Failed to save your changes."),
-            variant: "destructive",
-        });
-    } finally {
-        setIsSaving(false);
-    }
-  };
-
-
-  if (isLoading) {
-    return <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
-  }
-
-  if (!user) {
-    return <div>{t("Please log in to view settings.")}</div>
-=======
   if (isLoading) {
     return (
       <div className="space-y-8">
@@ -230,7 +147,6 @@ export default function SettingsPage() {
         </div>
       </div>
     )
->>>>>>> 068d3fff1ebaa035e444337644b56c698b9ce125
   }
   
   return (
@@ -242,46 +158,6 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
-<<<<<<< HEAD
-          <form onSubmit={handleSaveChanges}>
-            <CardHeader>
-              <CardTitle>{t("My Profile")}</CardTitle>
-              <CardDescription>{t("Update your personal information.")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">{t("Name")}</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">{t("Email")}</Label>
-                <Input id="email" type="email" value={user.email || ""} disabled />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="school">{t("School")}</Label>
-                <Input id="school" value={school} onChange={(e) => setSchool(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="language">{t("Language Preference")}</Label>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger id="language"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="english">English</SelectItem>
-                      <SelectItem value="hindi">Hindi</SelectItem>
-                      <SelectItem value="bengali">Bengali</SelectItem>
-                      <SelectItem value="marathi">Marathi</SelectItem>
-                      <SelectItem value="telugu">Telugu</SelectItem>
-                      <SelectItem value="tamil">Tamil</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("Save Changes")}
-              </Button>
-            </CardContent>
-          </form>
-=======
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardHeader>
@@ -342,7 +218,6 @@ export default function SettingsPage() {
               </CardFooter>
             </form>
           </Form>
->>>>>>> 068d3fff1ebaa035e444337644b56c698b9ce125
         </Card>
         
         <div className="space-y-6">
