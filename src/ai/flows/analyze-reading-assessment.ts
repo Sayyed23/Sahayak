@@ -61,16 +61,16 @@ const prompt = ai.definePrompt({
   {{media url=audioDataUri}}
 
   CRITICAL INSTRUCTIONS:
-  Your response MUST be a single JSON object that strictly conforms to the output schema. Do not include any other text, markdown, or formatting.
+  Your response MUST be a single JSON object that strictly conforms to the output schema. Do not include any other text, markdown, or formatting. Every required field in the schema MUST be present in your output.
 
   Perform the following analysis:
-  1.  **Calculate Fluency (WPM):** You MUST calculate the student's reading fluency in Words Per Minute (WPM) and include it in the 'fluencyWPM' field.
+  1.  **Calculate Fluency (WPM):** You MUST calculate the student's reading fluency in Words Per Minute (WPM). This is a required field.
   2.  **Calculate Accuracy:** Calculate the pronunciation accuracy as a percentage.
   3.  **Word-by-Word Analysis:** Go through the original passage word by word and compare it to the student's audio.
       - For each word, determine its 'status': "correct", "mispronunciation", "substitution", "omission", or "insertion".
-      - **For every spoken word (correct, mispronunciation, substitution, insertion), you MUST provide both a 'startTime' and 'endTime' in seconds.** Omitted words will not have timestamps.
+      - **For every spoken word (correct, mispronunciation, substitution, insertion), you MUST provide both a 'startTime' and 'endTime' in seconds.** Omitted words will not have timestamps. This is a critical requirement.
       - For 'substitution' or 'mispronunciation', provide the word the student actually said in the 'spokenWord' field.
-  4.  **Summarize Errors:** Calculate the total count for each type of error (mispronunciations, substitutions, omissions, insertions) and provide it in the 'errorSummary' object.
+  4.  **Summarize Errors:** You MUST calculate the total count for each type of error (mispronunciations, substitutions, omissions, insertions) and provide it in the 'errorSummary' object. This is a required field.
   5.  **Format the Output:** The final output must be a single JSON object containing the 'fluencyWPM', 'accuracyPercentage', 'analysis' array, and 'errorSummary' object. Be precise and thorough.
 
   Example of a valid response format:
