@@ -1,34 +1,41 @@
-# Stage 1: Install dependencies
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
+# Stage 1: Build the Next.js app
+FROM node:18-alpine AS builder
 
-# Stage 2: Build the application
-FROM node:20-alpine AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+
+# Copy package.json and package-lock.json (or yarn.lock)
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application files
 COPY . .
+
+# Build the Next.js app
 RUN npm run build
 
-# Stage 3: Production image
-FROM node:20-alpine AS runner
+# Stage 2: Create the production image
+FROM node:18-alpine AS runner
+
 WORKDIR /app
-ENV NODE_ENV production
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Set user to a non-root user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+USER nextjs
 
+# Copy the standalone output from the builder stage
 COPY --from=builder /app/public ./public
-
-# Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER nextjs
-
+# Expose the port the app runs on
 EXPOSE 3000
-ENV PORT 3000
 
+# Set the environment to production
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# The command to run the app
 CMD ["node", "server.js"]
