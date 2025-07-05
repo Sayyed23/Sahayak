@@ -29,7 +29,8 @@ export default function LoginPage() {
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             const userRole = userDoc.data()?.role || 'student';
-            router.replace(`/dashboard/${userRole}`);
+            router.push(`/dashboard/${userRole}`);
+            router.refresh();
           } else {
             console.error("Authentication error: User document not found for UID:", user.uid);
             await signOut(auth);
@@ -39,12 +40,12 @@ export default function LoginPage() {
               variant: "destructive",
               duration: 5000,
             });
-            router.replace('/signup'); 
+            router.push('/signup'); 
           }
         } catch (error) {
            console.error("Error checking user document:", error);
            await signOut(auth);
-           router.replace('/');
+           router.push('/');
         }
       }
     };
