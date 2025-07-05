@@ -1,20 +1,80 @@
 
 "use client"
 
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { doc, getDoc } from 'firebase/firestore'
+import { signOut } from 'firebase/auth'
+
 import { LoginForm } from '@/components/auth/login-form';
 import { Logo } from '@/components/logo'
 import { useAuth } from '@/hooks/use-auth'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { UserCheck } from 'lucide-react'
 import { useTranslation } from '@/hooks/use-translation'
+import { db, auth } from '@/lib/firebase'
+import { useToast } from '@/hooks/use-toast'
 
 export default function LoginPage() {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { t } = useTranslation()
+  const router = useRouter()
+  const { toast } = useToast()
+  const [isCheckingRole, setIsCheckingRole] = useState(true)
 
-  if (loading) {
+  useEffect(() => {
+    // Don't do anything until Firebase auth state is resolved
+    if (authLoading) {
+      return
+    }
+
+    const checkUserAndRedirect = async () => {
+      if (user) {
+        // User is logged in, check their role in Firestore
+        if (!db || !auth) {
+          setIsCheckingRole(false);
+          return;
+        }
+
+        const userDocRef = doc(db, "users", user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          const userRole = userDocSnap.data()?.role;
+          if (userRole === 'teacher' || userRole === 'student') {
+            router.push(`/dashboard/${userRole}`);
+          } else {
+            // Role is missing or invalid, treat as an error
+            console.error("Authentication error: Invalid or missing role for UID:", user.uid);
+            await signOut(auth);
+            toast({
+              title: t("Authentication Error"),
+              description: t("Your user role could not be determined. Please log in again."),
+              variant: "destructive",
+            });
+            setIsCheckingRole(false);
+          }
+        } else {
+          // This is an inconsistent state, likely from an incomplete signup.
+          console.error("Authentication error: User document not found for UID:", user.uid);
+          await signOut(auth);
+          toast({
+            title: t("Incomplete Registration"),
+            description: t("Your previous registration was not completed. Please sign up again."),
+            variant: "destructive",
+          });
+          setIsCheckingRole(false);
+        }
+      } else {
+        // No user is logged in, so stop checking and show the login form.
+        setIsCheckingRole(false);
+      }
+    };
+    
+    checkUserAndRedirect();
+
+  }, [user, authLoading, router, t, toast]);
+
+  if (authLoading || isCheckingRole) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         {t("Loading...")}
@@ -22,34 +82,7 @@ export default function LoginPage() {
     )
   }
 
-  // If user is already logged in, show a role selection screen
-  if (user) {
-    return (
-       <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
-         <Card className="w-full max-w-md">
-           <CardHeader className="text-center">
-             <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
-               <UserCheck className="h-10 w-10 text-primary" />
-             </div>
-             <CardTitle className="font-headline text-2xl">{t("You're Already Logged In")}</CardTitle>
-             <CardDescription>
-               {t("Welcome back, {{name}}! Please select your dashboard.", { name: user.displayName || 'user' })}
-             </CardDescription>
-           </CardHeader>
-           <CardContent className="flex flex-col gap-4">
-             <Button asChild size="lg">
-               <Link href="/dashboard/teacher">{t("Teacher Dashboard")}</Link>
-             </Button>
-             <Button asChild variant="secondary" size="lg">
-               <Link href="/dashboard/student">{t("Student Dashboard")}</Link>
-             </Button>
-           </CardContent>
-         </Card>
-       </div>
-    )
-  }
-
-
+  // If we're done loading and checking, and there's no user, show the form.
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
