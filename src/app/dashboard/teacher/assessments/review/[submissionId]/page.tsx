@@ -16,13 +16,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter, useParams } from "next/navigation"
 import React from "react"
+import Image from "next/image"
 
 interface SubmissionReport {
   studentName: string
   passageTitle: string
   dateSubmitted: string
-  report: AnalyzeReadingAssessmentOutput
-  audioUrl: string
+  submissionType: 'reading' | 'worksheet';
+  status: 'pending_review' | 'reviewed';
+  report?: AnalyzeReadingAssessmentOutput
+  audioUrl?: string
+  submissionImageUrl?: string
 }
 
 export default function ReviewAssessmentPage() {
@@ -56,8 +60,11 @@ export default function ReviewAssessmentPage() {
           studentName: data.studentName,
           passageTitle: data.passageTitle,
           dateSubmitted: data.submittedAt.toDate().toLocaleDateString(),
+          submissionType: data.submissionType || 'reading',
+          status: data.status,
           report: data.report,
           audioUrl: data.audioUrl,
+          submissionImageUrl: data.submissionImageUrl,
         })
       } else {
         toast({ title: t("Submission not found"), variant: "destructive" })
@@ -87,19 +94,16 @@ export default function ReviewAssessmentPage() {
 
   const handleEnded = () => {
     setIsPlaying(false)
-    // Optional: Reset to start
-    // if(audioRef.current) audioRef.current.currentTime = 0;
   }
 
   useEffect(() => {
     const audio = audioRef.current
-    if (audio) {
+    if (audio && report?.submissionType === 'reading') {
       audio.addEventListener('timeupdate', handleTimeUpdate)
       audio.addEventListener('ended', handleEnded)
       audio.addEventListener('play', () => setIsPlaying(true))
       audio.addEventListener('pause', () => setIsPlaying(false))
 
-      // Set audio source if report is loaded
       if (report?.audioUrl && audio.src !== report.audioUrl) {
         audio.src = report.audioUrl;
       }
@@ -114,7 +118,7 @@ export default function ReviewAssessmentPage() {
   }, [report])
   
   useEffect(() => {
-    if (report?.report?.analysis) {
+    if (report?.report?.analysis && report.submissionType === 'reading') {
       const activeIndex = report.report.analysis.findIndex(word => 
         word.startTime !== undefined && word.endTime !== undefined && 
         currentTime >= word.startTime && currentTime < word.endTime
@@ -168,7 +172,7 @@ export default function ReviewAssessmentPage() {
       </Link>
 
       <div>
-        <h1 className="text-3xl font-bold font-headline">{report.studentName} - {t("Reading Report")}</h1>
+        <h1 className="text-3xl font-bold font-headline">{report.studentName} - {report.submissionType === 'worksheet' ? t("Worksheet Review") : t("Reading Report")}</h1>
         <p className="text-muted-foreground">
           {t("Assessed on")}: <span className="font-medium">{report.passageTitle}</span> | {t("Submitted")}: {report.dateSubmitted}
         </p>
@@ -178,53 +182,64 @@ export default function ReviewAssessmentPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>{t("Passage with AI-Detected Errors")}</CardTitle>
-              <CardDescription>{t("Listen to the audio and see where the student struggled.")}</CardDescription>
+              <CardTitle>{report.submissionType === 'worksheet' ? t("Submitted Worksheet") : t("Passage with AI-Detected Errors")}</CardTitle>
+              <CardDescription>{report.submissionType === 'worksheet' ? t("Review the student's uploaded work.") : t("Listen to the audio and see where the student struggled.")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 border rounded-lg">
-                  <Button size="icon" onClick={handlePlayPause} disabled={!report.audioUrl}>
-                    {isPlaying ? <Pause /> : <Play />}
-                  </Button>
-                  <div className="w-full">
-                    {report.audioUrl ? (
-                      <audio ref={audioRef} src={report.audioUrl} preload="metadata" />
-                    ) : (
-                      <p className="text-sm text-muted-foreground">{t("Audio for this submission is not available.")}</p>
+              {report.submissionType === 'reading' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 p-4 border rounded-lg">
+                    <Button size="icon" onClick={handlePlayPause} disabled={!report.audioUrl}>
+                      {isPlaying ? <Pause /> : <Play />}
+                    </Button>
+                    <div className="w-full">
+                      {report.audioUrl ? (
+                        <audio ref={audioRef} src={report.audioUrl} preload="metadata" />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{t("Audio for this submission is not available.")}</p>
+                      )}
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="bg-primary h-full" style={{ width: `${(currentTime / (audioRef.current?.duration || 1)) * 100}%` }}/>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 border rounded-lg bg-muted/30 text-base md:text-lg leading-relaxed">
+                    {report.report && report.report.analysis ? report.report.analysis.map((wordData, index) => {
+                        const isActive = index === activeWordIndex;
+                        let displayWord = wordData.word;
+                        let className = "px-1 rounded-sm transition-colors duration-150";
+
+                        if (wordData.status === "mispronunciation" || wordData.status === "substitution") {
+                            displayWord = wordData.spokenWord || wordData.word;
+                            className += " bg-destructive/20 text-destructive";
+                        } else if (wordData.status === "omission") {
+                            className += " bg-red-500/20 text-red-600 line-through";
+                        } else if (wordData.status === "insertion") {
+                            className += " bg-green-500/20 text-green-700 italic";
+                        }
+
+                        if (isActive) {
+                            className += " bg-primary/30";
+                        }
+                        
+                        return (
+                            <span key={index} className={className}>{displayWord}</span>
+                        );
+                    }).reduce((prev, curr) => [prev, ' ', curr] as any) : (
+                      <p className="text-sm text-muted-foreground">{t("No analysis data available.")}</p>
                     )}
-                     <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                       <div className="bg-primary h-full" style={{ width: `${(currentTime / (audioRef.current?.duration || 1)) * 100}%` }}/>
-                     </div>
                   </div>
                 </div>
-                <div className="p-4 border rounded-lg bg-muted/30 text-base md:text-lg leading-relaxed">
-                   {report.report.analysis ? report.report.analysis.map((wordData, index) => {
-                      const isActive = index === activeWordIndex;
-                      let displayWord = wordData.word;
-                      let className = "px-1 rounded-sm transition-colors duration-150";
-
-                      if (wordData.status === "mispronunciation" || wordData.status === "substitution") {
-                          displayWord = wordData.spokenWord || wordData.word;
-                          className += " bg-destructive/20 text-destructive";
-                      } else if (wordData.status === "omission") {
-                          className += " bg-red-500/20 text-red-600 line-through";
-                      } else if (wordData.status === "insertion") {
-                          className += " bg-green-500/20 text-green-700 italic";
-                      }
-
-                      if (isActive) {
-                          className += " bg-primary/30";
-                      }
-                      
-                      return (
-                          <span key={index} className={className}>{displayWord}</span>
-                      );
-                   }).reduce((prev, curr) => [prev, ' ', curr] as any) : (
-                    <p className="text-sm text-muted-foreground">{t("No analysis data available.")}</p>
-                   )}
+              )}
+              {report.submissionType === 'worksheet' && (
+                <div className="flex justify-center p-4 border rounded-lg bg-muted/30">
+                  {report.submissionImageUrl ? (
+                    <Image src={report.submissionImageUrl} alt={t("Submitted worksheet")} width={800} height={1100} className="rounded-md w-full h-auto object-contain" />
+                  ) : (
+                    <p>{t("Image not available for this submission.")}</p>
+                  )}
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -234,7 +249,7 @@ export default function ReviewAssessmentPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea 
-                placeholder={t("Great job, {{name}}! Try to focus on the 'a' sound in words like 'ant'. Keep practicing!", { name: report.studentName.split(' ')[0] })} 
+                placeholder={t("Great job, {{name}}! Keep up the good work.", { name: report.studentName.split(' ')[0] })} 
                 rows={4}
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
@@ -248,46 +263,50 @@ export default function ReviewAssessmentPage() {
           </Card>
         </div>
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Performance Summary")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-md bg-accent">
-                <div className="flex items-center gap-3">
-                  <Gauge className="text-primary h-6 w-6" />
-                  <span className="font-medium">{t("Fluency (WPM)")}</span>
-                </div>
-                <span className="text-2xl font-bold">{report.report.fluencyWPM}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-md bg-accent">
-                <div className="flex items-center gap-3">
-                  <Ear className="text-primary h-6 w-6" />
-                  <span className="font-medium">{t("Accuracy")}</span>
-                </div>
-                <span className="text-2xl font-bold">{report.report.accuracyPercentage.toFixed(2)}%</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Error Details")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {errors.length > 0 ? (
-                <ul className="space-y-2 text-sm">
-                  {errors.map((error, index) => (
-                    <li key={index} className="flex items-center justify-between capitalize">
-                      <span>{error.status === 'substitution' || error.status === 'mispronunciation' ? error.spokenWord : error.word}</span>
-                      <Badge variant={error.status === 'omission' ? 'destructive' : 'secondary'}>{t(error.status)}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                 <p className="text-sm text-center text-muted-foreground">{t("No errors detected. Great job!")}</p>
-              )}
-            </CardContent>
-          </Card>
+          {report.submissionType === 'reading' && report.report && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("Performance Summary")}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-3 rounded-md bg-accent">
+                    <div className="flex items-center gap-3">
+                      <Gauge className="text-primary h-6 w-6" />
+                      <span className="font-medium">{t("Fluency (WPM)")}</span>
+                    </div>
+                    <span className="text-2xl font-bold">{report.report.fluencyWPM}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-md bg-accent">
+                    <div className="flex items-center gap-3">
+                      <Ear className="text-primary h-6 w-6" />
+                      <span className="font-medium">{t("Accuracy")}</span>
+                    </div>
+                    <span className="text-2xl font-bold">{report.report.accuracyPercentage.toFixed(2)}%</span>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("Error Details")}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {errors.length > 0 ? (
+                    <ul className="space-y-2 text-sm">
+                      {errors.map((error, index) => (
+                        <li key={index} className="flex items-center justify-between capitalize">
+                          <span>{error.status === 'substitution' || error.status === 'mispronunciation' ? error.spokenWord : error.word}</span>
+                          <Badge variant={error.status === 'omission' ? 'destructive' : 'secondary'}>{t(error.status)}</Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-center text-muted-foreground">{t("No errors detected. Great job!")}</p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
            <Button variant="outline" className="w-full" disabled>
             <Download className="mr-2 h-4 w-4" /> {t("Download Report")}
           </Button>
