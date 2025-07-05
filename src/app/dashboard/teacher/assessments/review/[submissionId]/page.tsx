@@ -246,7 +246,7 @@ export default function ReviewAssessmentPage() {
                     </Button>
                     <div className="w-full">
                       {report.audioUrl ? (
-                        <audio ref={audioRef} src={report.audioUrl} preload="metadata" />
+                        <audio ref={audioRef} preload="metadata" />
                       ) : (
                         <p className="text-sm text-muted-foreground">{t("Audio for this submission is not available.")}</p>
                       )}
