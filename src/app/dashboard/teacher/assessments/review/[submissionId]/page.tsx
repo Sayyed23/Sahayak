@@ -16,12 +16,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter, useParams } from "next/navigation"
 import React from "react"
-<<<<<<< HEAD
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-=======
 import Image from "next/image"
->>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
 
 interface SubmissionReport {
   studentName: string
@@ -237,16 +234,11 @@ export default function ReviewAssessmentPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-<<<<<<< HEAD
-              <CardTitle>{t("Passage with AI-Detected Errors")}</CardTitle>
-              <CardDescription>{t("Hover over highlighted words for details. Play the audio to follow along.")}</CardDescription>
-=======
               <CardTitle>{report.submissionType === 'worksheet' ? t("Submitted Worksheet") : t("Passage with AI-Detected Errors")}</CardTitle>
-              <CardDescription>{report.submissionType === 'worksheet' ? t("Review the student's uploaded work.") : t("Listen to the audio and see where the student struggled.")}</CardDescription>
->>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
+              <CardDescription>{report.submissionType === 'worksheet' ? t("Review the student's uploaded work.") : t("Hover over highlighted words for details. Play the audio to follow along.")}</CardDescription>
             </CardHeader>
             <CardContent>
-              {report.submissionType === 'reading' && (
+              {report.submissionType === 'reading' && report.report?.analysis && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-4 border rounded-lg">
                     <Button size="icon" onClick={handlePlayPause} disabled={!report.audioUrl}>
@@ -263,68 +255,42 @@ export default function ReviewAssessmentPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 border rounded-lg bg-muted/30 text-base md:text-lg leading-relaxed">
-                    {report.report && report.report.analysis ? report.report.analysis.map((wordData, index) => {
+                  <div className="p-4 border rounded-lg bg-muted/30 text-lg leading-relaxed">
+                    <TooltipProvider>
+                      {report.report.analysis.map((wordData, index) => {
                         const isActive = index === activeWordIndex;
-                        let displayWord = wordData.word;
-                        let className = "px-1 rounded-sm transition-colors duration-150";
+                        const isError = wordData.status !== 'correct';
+                        let displayWord = wordData.status === 'substitution' ? wordData.spokenWord : wordData.word;
+                        
+                        const wordElement = (
+                          <span className={getWordClassName(wordData.status, isActive)}>
+                            {displayWord}
+                          </span>
+                        );
 
-                        if (wordData.status === "mispronunciation" || wordData.status === "substitution") {
-                            displayWord = wordData.spokenWord || wordData.word;
-                            className += " bg-destructive/20 text-destructive";
-                        } else if (wordData.status === "omission") {
-                            className += " bg-red-500/20 text-red-600 line-through";
-                        } else if (wordData.status === "insertion") {
-                            className += " bg-green-500/20 text-green-700 italic";
-                        }
-
-                        if (isActive) {
-                            className += " bg-primary/30";
+                        if (isError) {
+                          return (
+                            <React.Fragment key={index}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>{wordElement}</TooltipTrigger>
+                                <TooltipContent><p>{getTooltipContent(wordData, t)}</p></TooltipContent>
+                              </Tooltip>
+                              {' '}
+                            </React.Fragment>
+                          );
                         }
                         
                         return (
-                            <span key={index} className={className}>{displayWord}</span>
+                          <span key={index}>{wordData.word}{' '}</span>
                         );
-                    }).reduce((prev, curr) => [prev, ' ', curr] as any) : (
-                      <p className="text-sm text-muted-foreground">{t("No analysis data available.")}</p>
-                    )}
+                     })}
+                    </TooltipProvider>
                   </div>
                 </div>
-<<<<<<< HEAD
-                <div className="p-4 border rounded-lg bg-muted/30 text-lg leading-relaxed">
-                  <TooltipProvider>
-                    {report.report.analysis ? report.report.analysis.map((wordData, index) => {
-                      const isActive = index === activeWordIndex;
-                      const isError = wordData.status !== 'correct';
-                      let displayWord = wordData.status === 'substitution' ? wordData.spokenWord : wordData.word;
-                      
-                      const wordElement = (
-                        <span className={getWordClassName(wordData.status, isActive)}>
-                          {displayWord}
-                        </span>
-                      );
-
-                      if (isError) {
-                        return (
-                          <React.Fragment key={index}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>{wordElement}</TooltipTrigger>
-                              <TooltipContent><p>{getTooltipContent(wordData, t)}</p></TooltipContent>
-                            </Tooltip>
-                            {' '}
-                          </React.Fragment>
-                        );
-                      }
-                      
-                      return (
-                        <span key={index}>{wordData.word}{' '}</span>
-                      );
-                   }) : (
-                    <p className="text-sm text-muted-foreground">{t("No analysis data available.")}</p>
-                   )}
-                  </TooltipProvider>
-=======
               )}
+               {report.submissionType === 'reading' && !report.report?.analysis && (
+                  <p className="text-sm text-muted-foreground">{t("No analysis data available.")}</p>
+               )}
               {report.submissionType === 'worksheet' && (
                 <div className="flex justify-center p-4 border rounded-lg bg-muted/30">
                   {report.submissionImageUrl ? (
@@ -332,7 +298,6 @@ export default function ReviewAssessmentPage() {
                   ) : (
                     <p>{t("Image not available for this submission.")}</p>
                   )}
->>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
                 </div>
               )}
             </CardContent>
@@ -358,58 +323,6 @@ export default function ReviewAssessmentPage() {
           </Card>
         </div>
         <div className="space-y-6">
-<<<<<<< HEAD
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Performance Summary")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-md bg-accent">
-                <div className="flex items-center gap-3">
-                  <Gauge className="text-primary h-6 w-6" />
-                  <span className="font-medium">{t("Fluency (WPM)")}</span>
-                </div>
-                <span className="text-2xl font-bold">{report.report.fluencyWPM ?? 'N/A'}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-md bg-accent">
-                <div className="flex items-center gap-3">
-                  <Ear className="text-primary h-6 w-6" />
-                  <span className="font-medium">{t("Accuracy")}</span>
-                </div>
-                <span className="text-2xl font-bold">{report.report.accuracyPercentage?.toFixed(1) ?? 'N/A'}%</span>
-              </div>
-              {report.report.errorSummary && (
-                <div className="space-y-2 pt-2 text-sm">
-                  <h4 className="font-semibold">{t("Error Breakdown")}</h4>
-                  <ul className="list-disc list-inside text-muted-foreground">
-                    <li>{t("Substitutions")}: {report.report.errorSummary.substitutions}</li>
-                    <li>{t("Mispronunciations")}: {report.report.errorSummary.mispronunciations}</li>
-                    <li>{t("Omissions")}: {report.report.errorSummary.omissions}</li>
-                    <li>{t("Insertions")}: {report.report.errorSummary.insertions}</li>
-                  </ul>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><FileWarning className="h-5 w-5"/>{t("Error Details")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {errors.length > 0 ? (
-                <ul className="space-y-3 text-sm">
-                  {errors.map((error, index) => (
-                    <li key={index} className="flex items-center justify-between capitalize border-b pb-2">
-                      {formatErrorDetail(error, t)}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                 <p className="text-sm text-center text-muted-foreground">{t("No errors detected. Great job!")}</p>
-              )}
-            </CardContent>
-          </Card>
-=======
           {report.submissionType === 'reading' && report.report && (
             <>
               <Card>
@@ -422,39 +335,48 @@ export default function ReviewAssessmentPage() {
                       <Gauge className="text-primary h-6 w-6" />
                       <span className="font-medium">{t("Fluency (WPM)")}</span>
                     </div>
-                    <span className="text-2xl font-bold">{report.report.fluencyWPM}</span>
+                    <span className="text-2xl font-bold">{report.report.fluencyWPM ?? 'N/A'}</span>
                   </div>
                   <div className="flex items-center justify-between p-3 rounded-md bg-accent">
                     <div className="flex items-center gap-3">
                       <Ear className="text-primary h-6 w-6" />
                       <span className="font-medium">{t("Accuracy")}</span>
                     </div>
-                    <span className="text-2xl font-bold">{report.report.accuracyPercentage.toFixed(2)}%</span>
+                    <span className="text-2xl font-bold">{report.report.accuracyPercentage?.toFixed(1) ?? 'N/A'}%</span>
                   </div>
+                  {report.report.errorSummary && (
+                    <div className="space-y-2 pt-2 text-sm">
+                      <h4 className="font-semibold">{t("Error Breakdown")}</h4>
+                      <ul className="list-disc list-inside text-muted-foreground">
+                        <li>{t("Substitutions")}: {report.report.errorSummary.substitutions}</li>
+                        <li>{t("Mispronunciations")}: {report.report.errorSummary.mispronunciations}</li>
+                        <li>{t("Omissions")}: {report.report.errorSummary.omissions}</li>
+                        <li>{t("Insertions")}: {report.report.errorSummary.insertions}</li>
+                      </ul>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("Error Details")}</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><FileWarning className="h-5 w-5"/>{t("Error Details")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {errors.length > 0 ? (
-                    <ul className="space-y-2 text-sm">
+                    <ul className="space-y-3 text-sm">
                       {errors.map((error, index) => (
-                        <li key={index} className="flex items-center justify-between capitalize">
-                          <span>{error.status === 'substitution' || error.status === 'mispronunciation' ? error.spokenWord : error.word}</span>
-                          <Badge variant={error.status === 'omission' ? 'destructive' : 'secondary'}>{t(error.status)}</Badge>
+                        <li key={index} className="flex items-center justify-between capitalize border-b pb-2">
+                          {formatErrorDetail(error, t)}
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-center text-muted-foreground">{t("No errors detected. Great job!")}</p>
+                     <p className="text-sm text-center text-muted-foreground">{t("No errors detected. Great job!")}</p>
                   )}
                 </CardContent>
               </Card>
             </>
           )}
->>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
            <Button variant="outline" className="w-full" disabled>
             <Download className="mr-2 h-4 w-4" /> {t("Download Report")}
           </Button>

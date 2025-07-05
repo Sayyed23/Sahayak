@@ -13,7 +13,6 @@ import { useTranslation } from '@/hooks/use-translation'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
-<<<<<<< HEAD
 import { db, auth } from '@/lib/firebase'
 
 export default function StudentSignupPage() {
@@ -65,34 +64,6 @@ export default function StudentSignupPage() {
 
 
   if (authLoading || isCheckingRole) {
-=======
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
-
-export default function StudentSignupPage() {
-  const { t } = useTranslation()
-  const { user, loading } = useAuth()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (user && db) {
-      const userDocRef = doc(db, 'users', user.uid);
-      getDoc(userDocRef).then(userDoc => {
-        if (userDoc.exists()) {
-          const userRole = userDoc.data()?.role || 'student';
-          router.replace(`/dashboard/${userRole}`);
-        } else {
-            console.warn("User authenticated but no Firestore document found.");
-        }
-      });
-    }
-  }, [user, db, router]);
-
-
-  if (loading || user) {
->>>>>>> 1d3e53a0853ff1235dc4d7644646c721a1f63dbd
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
