@@ -104,6 +104,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
 
     try {
         let teacherId: string | null = null;
+        // For students, validate the teacher code *before* creating the auth user.
         if (role === 'student') {
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
             const teacherCode = studentValues.teacherCode.toUpperCase();
@@ -154,6 +155,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
             const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
 
             // Use a transaction to ensure both documents are created or neither are.
+            // This now works because the security rules have been updated.
             await runTransaction(db, async (transaction) => {
                 transaction.set(userDocRef, teacherData);
                 transaction.set(codeDocRef, { teacherId: user.uid });
@@ -168,7 +170,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 school: studentValues.school,
                 language: studentValues.language,
                 grade: studentValues.grade,
-                teacherId: teacherId, 
+                teacherId: teacherId!, 
             };
             await setDoc(doc(db, "users", user.uid), studentData);
         }
