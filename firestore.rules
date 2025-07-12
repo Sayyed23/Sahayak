@@ -47,28 +47,28 @@ service cloud.firestore {
       // No one can read the list of codes or update/delete them.
       allow read, update, delete: if false;
     }
+firestore
+      // USERS
+          match /users/{userId} {
 
-    // USERS
-    match /users/{userId} {
-      
-      // CREATE: Allow anyone to create a user document (signup) if they provide valid data.
-      allow create: if isSignedIn()
-                      && isOwner(userId)
-                      && request.resource.data.uid == userId
-                      && (
-                        // Teacher signup validation
-                        (request.resource.data.role == 'teacher'
-                          && request.resource.data.teacherCode is string
-                          && request.resource.data.teacherCode.size() == 6)
-                        ||
-                        // Student signup validation
-                        (request.resource.data.role == 'student'
-                          && request.resource.data.teacherId is string)
-                      )
-                      && request.resource.data.name is string
-                      && request.resource.data.email is string
-                      && request.resource.data.school is string
-                      && request.resource.data.language is string;
+            // CREATE: Allow anyone to create a user document (signup) if they provide valid data.
+            allow create: if isSignedIn()
+                            && isOwner(userId)
+                            && (
+                              // Teacher signup validation
+                              (request.resource.data.role == 'teacher'
+                                && request.resource.data.teacherCode is string
+                                && request.resource.data.teacherCode.size() == 6)
+                              ||
+                              // Student signup validation
+                              (request.resource.data.role == 'student'
+                                && request.resource.data.teacherId is string)
+                            )
+                            && request.resource.data.name is string
+                            && request.resource.data.email is string;
+
+            // ... other rules for read, update, delete ...
+          }
 
       // READ: Allow users to read their own profile.
       // Allow students to read their teacher's profile.
