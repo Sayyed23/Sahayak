@@ -1,122 +1,106 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // By default, deny all reads and writes
-    match /{document=**} {
-      allow read, write: if false;
+
+    // Helper function to check if a user is a teacher
+    function isTeacher(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'teacher';
     }
 
-    //----------------------------------------------------------------------
-    //  USERS Collection
-    //----------------------------------------------------------------------
+    // Helper function to check if a user is the owner of a document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // ANYONE can create a user document IF:
-      // 1. They are creating their own document (UID matches).
-      // 2. The role is either 'teacher' or 'student'.
-      // 3. The request body contains all the required fields.
+      // ANY authenticated user can CREATE their own user document during signup.
+      // This is the entry point for creating a user profile.
       allow create: if request.auth.uid == userId
-                    && request.resource.data.role in ['teacher', 'student']
-                    && 'name' in request.resource.data
-                    && 'email' in request.resource.data
-                    && 'school' in request.resource.data
-                    && 'language' in request.resource.data
-                    && (request.resource.data.role == 'teacher' ? 'teacherCode' in request.resource.data : 'grade' in request.resource.data && 'teacherId' in request.resource.data);
+                    && ('name' in request.resource.data && request.resource.data.name is string)
+                    && ('role' in request.resource.data && (request.resource.data.role == 'teacher' || request.resource.data.role == 'student'));
 
-      // A USER can read their own document.
-      // A STUDENT can read their teacher's document.
-      // A TEACHER can read their own student's document.
-      allow read: if request.auth.uid == userId 
-                  || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teacherId == userId)
-                  || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && get(/databases/$(database)/documents/users/$(userId)).data.teacherId == request.auth.uid);
-
-      // A USER can update their own document IF:
-      // 1. They are only changing their name, school, or language.
-      // 2. They are not trying to change their role, email, or other protected fields.
-      allow update: if request.auth.uid == userId
-                     && request.resource.data.keys().hasOnly(['name', 'school', 'grade', 'language'])
-                     && request.resource.data.name is string
-                     && request.resource.data.school is string;
+      // Users can only READ their own document.
+      allow read: if isOwner(userId);
+      
+      // Users can only UPDATE their own document.
+      // They cannot change their role after it has been set.
+      allow update: if isOwner(userId)
+                    && request.resource.data.role == resource.data.role;
+                    
+      // No one can delete user documents.
+      allow delete: if false;
     }
 
-    //----------------------------------------------------------------------
-    //  TEACHER CODES Collection
-    //----------------------------------------------------------------------
+    // Rules for the 'teacherCodes' collection
     match /teacherCodes/{code} {
-      // A TEACHER can create a teacher code document IF:
-      // 1. The code does not already exist.
-      // 2. The `teacherId` in the document matches their own UID.
-      // 3. The user creating the code has the 'teacher' role.
+      // A teacher can CREATE a new teacher code document.
+      // The `teacherId` in the new document MUST match the UID of the person creating it.
+      // We check the incoming request data, not existing data, which is key for transactions.
       allow create: if request.auth.uid == request.resource.data.teacherId
                     && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
-    }
 
-    //----------------------------------------------------------------------
-    //  CONTENT Collection
-    //----------------------------------------------------------------------
+      // Anyone can READ a teacher code document to verify it exists.
+      allow read: if true;
+
+      // No one can update or delete teacher codes.
+      allow update, delete: if false;
+    }
+    
+    // Rules for the 'content' collection
     match /content/{contentId} {
-      // A TEACHER can create content.
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' 
-                     && request.resource.data.teacherId == request.auth.uid;
-                     
-      // A TEACHER can read their own content.
-      // A STUDENT can read content if their ID is in the `assignedStudentIds` array.
-      allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && resource.data.teacherId == request.auth.uid
-                  || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student' && request.auth.uid in resource.data.assignedStudentIds);
+        // A teacher can create content.
+        allow create: if isTeacher(request.auth.uid);
 
-      // A TEACHER can update their own content.
-      allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && resource.data.teacherId == request.auth.uid;
+        // A teacher can read/update/delete their own content.
+        allow read, update, delete: if isTeacher(request.auth.uid) && request.auth.uid == resource.data.teacherId;
 
-      // A TEACHER can delete their own content.
-      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && resource.data.teacherId == request.auth.uid;
+        // A student can read content if their ID is in the 'assignedStudentIds' array.
+        // This is important for when they open a lesson or assignment.
+        match /content/{contentId} {
+            allow read: if request.auth.uid in resource.data.assignedStudentIds;
+        }
     }
-    
-    //----------------------------------------------------------------------
-    //  ASSIGNMENTS Collection (links content to students)
-    //----------------------------------------------------------------------
+
+    // Rules for 'assignments'
+    // These link content to a specific student.
     match /assignments/{assignmentId} {
-        // A TEACHER can create assignments for their students.
-        allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
-                       && request.resource.data.teacherId == request.auth.uid;
+        // A teacher can create an assignment (assign content).
+        allow create: if isTeacher(request.auth.uid) && request.auth.uid == request.resource.data.teacherId;
+      
+        // A student can read their own assignments.
+        allow read: if request.auth.uid == resource.data.studentId;
 
-        // A STUDENT can read assignments assigned to them.
-        // A TEACHER can read assignments they created.
-        allow read: if (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student' && resource.data.studentId == request.auth.uid)
-                    || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && resource.data.teacherId == request.auth.uid);
-    }
-    
-    //----------------------------------------------------------------------
-    //  ASSESSMENTS Collection (Reading Passages)
-    //----------------------------------------------------------------------
-    match /assessments/{assessmentId} {
-        // A TEACHER can create assessments.
-        allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
-                       && request.resource.data.teacherId == request.auth.uid;
-                       
-        // A STUDENT can read an assessment if their ID is in the `assignedStudentIds` array.
-        // A TEACHER can read assessments they created.
-        allow read: if (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student' && request.auth.uid in resource.data.assignedStudentIds)
-                    || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && resource.data.teacherId == request.auth.uid);
+        // A teacher can read assignments they created.
+        allow list: if isTeacher(request.auth.uid) && request.query.where.teacherId == request.auth.uid;
+        
+        allow update, delete: if isTeacher(request.auth.uid) && request.auth.uid == resource.data.teacherId;
     }
 
-    //----------------------------------------------------------------------
-    //  SUBMISSIONS Collection
-    //----------------------------------------------------------------------
+    // Rules for 'submissions'
+    // This is where students submit their work.
     match /submissions/{submissionId} {
-      // A STUDENT can create a submission for an assessment assigned to them.
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student'
-                     && request.resource.data.studentId == request.auth.uid;
+        // A student can create a submission for an assignment.
+        allow create: if request.auth.uid == request.resource.data.studentId;
+      
+        // The assigned teacher can read/update/delete submissions.
+        allow read, update, delete: if isTeacher(request.auth.uid) && request.auth.uid == resource.data.teacherId;
+    }
 
-      // A TEACHER can read submissions from their students.
-      // A STUDENT can read their own submissions.
-      allow read: if (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' && resource.data.teacherId == request.auth.uid)
-                  || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student' && resource.data.studentId == request.auth.uid);
+    // Rules for 'assessments'
+    // These are the reading passages teachers create.
+    match /assessments/{assessmentId} {
+        // A teacher can create an assessment.
+        allow create: if isTeacher(request.auth.uid) && request.auth.uid == request.resource.data.teacherId;
 
-      // A TEACHER can update a submission (to add feedback).
-      allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' 
-                     && resource.data.teacherId == request.auth.uid;
+        // The teacher who created it can read/update/delete it.
+        allow read, update, delete: if isTeacher(request.auth.uid) && request.auth.uid == resource.data.teacherId;
+
+        // A student can read an assessment if their ID is in the assigned list.
+        match /assessments/{assessmentId} {
+            allow read: if request.auth.uid in resource.data.assignedStudentIds;
+        }
     }
   }
 }

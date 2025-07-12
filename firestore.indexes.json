@@ -10,6 +10,14 @@
       ]
     },
     {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teacherCode", "order": "ASCENDING" },
+        { "fieldPath": "role", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "content",
       "queryScope": "COLLECTION",
       "fields": [
@@ -22,8 +30,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "teacherId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+        { "fieldPath": "status", "order": "ASCENDING" }
       ]
     },
     {
