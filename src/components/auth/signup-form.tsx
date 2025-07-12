@@ -109,38 +109,43 @@ export function SignUpForm({ role }: SignUpFormProps) {
             await updateProfile(user, { displayName: values.name });
 
             const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
-            let newTeacherCode = generateTeacherCode();
-            let codeExists = true;
-            let retries = 0;
-            const maxRetries = 5;
-
-            while(codeExists && retries < maxRetries) {
-                const codeDoc = await getDoc(doc(db, "teacherCodes", newTeacherCode));
-                if (!codeDoc.exists()) {
-                    codeExists = false;
-                } else {
-                    newTeacherCode = generateTeacherCode();
-                    retries++;
-                }
-            }
-            if (codeExists) {
-                throw new Error("Could not generate a unique teacher code.");
-            }
-
-            const teacherData = {
-                uid: user.uid,
-                name: teacherValues.name,
-                email: user.email,
-                role: 'teacher',
-                school: teacherValues.school,
-                language: teacherValues.language,
-                teacherCode: newTeacherCode,
-            };
-
-            const userDocRef = doc(db, "users", user.uid);
-            const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
             
+            // Transaction to ensure atomicity of user and code creation
             await runTransaction(db, async (transaction) => {
+                let newTeacherCode = '';
+                let codeExists = true;
+                let retries = 0;
+                const maxRetries = 5;
+
+                // Retry loop to find a unique teacher code
+                while(codeExists && retries < maxRetries) {
+                    newTeacherCode = generateTeacherCode();
+                    const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
+                    const codeDoc = await transaction.get(codeDocRef);
+                    if (!codeDoc.exists()) {
+                        codeExists = false;
+                    } else {
+                        retries++;
+                    }
+                }
+
+                if (codeExists) {
+                    throw new Error("Could not generate a unique teacher code after multiple attempts.");
+                }
+
+                const teacherData = {
+                    uid: user.uid,
+                    name: teacherValues.name,
+                    email: user.email,
+                    role: 'teacher',
+                    school: teacherValues.school,
+                    language: teacherValues.language,
+                    teacherCode: newTeacherCode,
+                };
+                
+                const userDocRef = doc(db, "users", user.uid);
+                const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
+
                 transaction.set(userDocRef, teacherData);
                 transaction.set(codeDocRef, { teacherId: user.uid });
             });
