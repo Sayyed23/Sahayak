@@ -1,6 +1,8 @@
+
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { initializeFirestore, CACHE_SIZE_UNLIMITED, memoryLocalCache, persistentLocalCache } from 'firebase/firestore';
+import type { Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -29,18 +31,21 @@ let db: Firestore | null = null;
 if (firebaseInitialized) {
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
-    db = getFirestore(app);
-    // This can fail if multiple tabs are open, but it's safe to ignore.
-    // It will still work in the first tab that opens.
-    enableIndexedDbPersistence(db).catch((err) => {
-      if (err.code === 'failed-precondition') {
-        // Multiple tabs open, persistence can only be enabled in one tab at a time.
-        // This is a normal scenario.
-      } else if (err.code === 'unimplemented') {
-        // The current browser does not support all of the features required to enable persistence
-        console.warn('Firestore persistence is not supported in this browser.');
-      }
-    });
+    // Use initializeFirestore with cache settings to enable offline persistence
+    // This replaces the deprecated enableIndexedDbPersistence()
+    try {
+        db = initializeFirestore(app, {
+            localCache: persistentLocalCache({ cacheSizeBytes: CACHE_SIZE_UNLIMITED }),
+        });
+    } catch (e) {
+        // This can happen in certain browser environments (e.g., private browsing)
+        // or if persistence has already been initialized in another tab.
+        // We fall back to in-memory cache.
+        console.warn("Could not enable Firestore persistence. Falling back to in-memory cache.", e);
+        db = initializeFirestore(app, {
+            localCache: memoryLocalCache(),
+        });
+    }
 } else {
     // This warning will be shown in the server console if env vars are missing
     console.warn(
