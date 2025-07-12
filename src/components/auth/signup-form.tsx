@@ -7,7 +7,7 @@ import * as z from "zod"
 import { useRouter } from "next/navigation"
 import React, { useState } from "react"
 import { createUserWithEmailAndPassword, updateProfile, signOut } from "firebase/auth"
-import { doc, setDoc, getDoc, runTransaction } from "firebase/firestore"
+import { doc, setDoc, getDoc, runTransaction, collection, query, where, getDocs } from "firebase/firestore"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -103,43 +103,28 @@ export function SignUpForm({ role }: SignUpFormProps) {
     setIsLoading(true);
 
     try {
-        let teacherId: string | null = null;
-        // For students, validate the teacher code *before* creating the auth user.
-        if (role === 'student') {
-            const studentValues = values as z.infer<typeof studentSignUpSchema>;
-            const teacherCode = studentValues.teacherCode.toUpperCase();
-            
-            const codeDocRef = doc(db, "teacherCodes", teacherCode);
-            const codeDocSnap = await getDoc(codeDocRef);
-
-            if (!codeDocSnap.exists()) {
-              toast({
-                title: t("Invalid Teacher Code"),
-                description: t("No teacher found with that code. Please check and try again."),
-                variant: "destructive",
-              });
-              setIsLoading(false);
-              return;
-            }
-            teacherId = codeDocSnap.data().teacherId;
-        }
-        
-        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-        const user = userCredential.user;
-        await updateProfile(user, { displayName: (values as any).name });
-
         if (role === 'teacher') {
+            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+            const user = userCredential.user;
+            await updateProfile(user, { displayName: values.name });
+
             const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
-            // Ensure teacher code is unique
             let newTeacherCode = generateTeacherCode();
             let codeExists = true;
-            while(codeExists) {
+            let retries = 0;
+            const maxRetries = 5;
+
+            while(codeExists && retries < maxRetries) {
                 const codeDoc = await getDoc(doc(db, "teacherCodes", newTeacherCode));
                 if (!codeDoc.exists()) {
                     codeExists = false;
                 } else {
                     newTeacherCode = generateTeacherCode();
+                    retries++;
                 }
+            }
+            if (codeExists) {
+                throw new Error("Could not generate a unique teacher code.");
             }
 
             const teacherData = {
@@ -151,17 +136,37 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 language: teacherValues.language,
                 teacherCode: newTeacherCode,
             };
+
             const userDocRef = doc(db, "users", user.uid);
             const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
-
-            // Use a transaction to ensure both documents are created or neither are.
-            // This now works because the security rules have been updated.
+            
             await runTransaction(db, async (transaction) => {
                 transaction.set(userDocRef, teacherData);
                 transaction.set(codeDocRef, { teacherId: user.uid });
             });
-        } else {
+
+        } else { // Student Signup
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
+            const teacherCode = studentValues.teacherCode.toUpperCase();
+            
+            const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+              toast({
+                title: t("Invalid Teacher Code"),
+                description: t("No teacher found with that code. Please check and try again."),
+                variant: "destructive",
+              });
+              setIsLoading(false);
+              return;
+            }
+            const teacherId = querySnapshot.docs[0].id;
+            
+            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+            const user = userCredential.user;
+            await updateProfile(user, { displayName: values.name });
+
             const studentData = {
                 uid: user.uid,
                 name: studentValues.name,
@@ -170,7 +175,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 school: studentValues.school,
                 language: studentValues.language,
                 grade: studentValues.grade,
-                teacherId: teacherId!, 
+                teacherId: teacherId, 
             };
             await setDoc(doc(db, "users", user.uid), studentData);
         }
@@ -181,6 +186,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
         });
         router.push(`/dashboard/${role}`);
         router.refresh();
+
       } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
             toast({
