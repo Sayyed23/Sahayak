@@ -103,21 +103,19 @@ export function SignUpForm({ role }: SignUpFormProps) {
     setIsLoading(true);
 
     try {
-        if (role === 'teacher') {
-            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-            const user = userCredential.user;
-            await updateProfile(user, { displayName: values.name });
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
+        await updateProfile(user, { displayName: values.name });
 
+        if (role === 'teacher') {
             const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
             
-            // Transaction to ensure atomicity of user and code creation
             await runTransaction(db, async (transaction) => {
                 let newTeacherCode = '';
                 let codeExists = true;
                 let retries = 0;
                 const maxRetries = 5;
 
-                // Retry loop to find a unique teacher code
                 while(codeExists && retries < maxRetries) {
                     newTeacherCode = generateTeacherCode();
                     const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
@@ -163,14 +161,12 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 description: t("No teacher found with that code. Please check and try again."),
                 variant: "destructive",
               });
+              // We need to delete the created auth user if the teacher code is invalid
+              await user.delete();
               setIsLoading(false);
               return;
             }
             const teacherId = querySnapshot.docs[0].id;
-            
-            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-            const user = userCredential.user;
-            await updateProfile(user, { displayName: values.name });
 
             const studentData = {
                 uid: user.uid,
@@ -193,6 +189,11 @@ export function SignUpForm({ role }: SignUpFormProps) {
         router.refresh();
 
       } catch (error: any) {
+        // If there's an error during DB write, delete the created auth user
+        if (auth.currentUser) {
+            await auth.currentUser.delete().catch(e => console.error("Failed to delete auth user on signup error:", e));
+        }
+
         if (error.code === 'auth/email-already-in-use') {
             toast({
                 title: t("Sign Up Failed"),
@@ -282,7 +283,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder={t("Select your grade")} />
-                              </SelectTrigger>
+                              </Trigger>
                             </FormControl>
                             <SelectContent>
                               {[...Array(10)].map((_, i) => (
