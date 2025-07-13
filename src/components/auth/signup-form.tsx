@@ -88,7 +88,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
             }
         });
     }
-  }, []);
+  });
 
   const onFormSubmit = async (values: z.infer<typeof signupSchema>) => {
     if (!auth || !db) {
