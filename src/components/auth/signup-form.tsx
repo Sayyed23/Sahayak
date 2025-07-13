@@ -103,10 +103,12 @@ export function SignUpForm({ role }: SignUpFormProps) {
     setIsLoading(true);
 
     try {
+        // Step 1: Create the user in Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
         await updateProfile(user, { displayName: values.name });
 
+        // Step 2: Create the user document in Firestore
         if (role === 'teacher') {
             const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
             
@@ -116,6 +118,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 let retries = 0;
                 const maxRetries = 5;
 
+                // Attempt to generate a unique teacher code
                 while(codeExists && retries < maxRetries) {
                     newTeacherCode = generateTeacherCode();
                     const codeDocRef = doc(db, "teacherCodes", newTeacherCode);
@@ -152,6 +155,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
             const studentValues = values as z.infer<typeof studentSignUpSchema>;
             const teacherCode = studentValues.teacherCode.toUpperCase();
             
+            // First, validate the teacher code exists
             const q = query(collection(db, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
             const querySnapshot = await getDocs(q);
 
@@ -161,13 +165,14 @@ export function SignUpForm({ role }: SignUpFormProps) {
                 description: t("No teacher found with that code. Please check and try again."),
                 variant: "destructive",
               });
-              // We need to delete the created auth user if the teacher code is invalid
+              // IMPORTANT: Delete the created auth user if the teacher code is invalid
               await user.delete();
               setIsLoading(false);
               return;
             }
             const teacherId = querySnapshot.docs[0].id;
 
+            // Now, create the student document
             const studentData = {
                 uid: user.uid,
                 name: studentValues.name,
@@ -189,7 +194,8 @@ export function SignUpForm({ role }: SignUpFormProps) {
         router.refresh();
 
       } catch (error: any) {
-        // If there's an error during DB write, delete the created auth user
+        // If there's an error during the process, especially after auth user creation,
+        // it's crucial to delete the auth user to allow them to try again.
         if (auth.currentUser) {
             await auth.currentUser.delete().catch(e => console.error("Failed to delete auth user on signup error:", e));
         }
