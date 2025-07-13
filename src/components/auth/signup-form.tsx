@@ -88,7 +88,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
             }
         });
     }
-  });
+  }, []);
 
   const onFormSubmit = async (values: z.infer<typeof signupSchema>) => {
     if (!auth || !db) {
@@ -283,7 +283,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder={t("Select your grade")} />
-                              </Trigger>
+                              </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {[...Array(10)].map((_, i) => (
