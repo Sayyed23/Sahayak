@@ -2,7 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
@@ -11,13 +11,15 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
-    function isStudent() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
-    }
 
     function isTeacher() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      // Check role directly in the create rule, without needing a read from Firestore
+      return request.resource.data.role == 'teacher';
+    }
+
+    function isStudent() {
+      // Check role directly in the create rule, without needing a read from Firestore
+      return request.resource.data.role == 'student';
     }
 
     //
@@ -26,15 +28,15 @@ service cloud.firestore {
     match /users/{userId} {
       // ANY authenticated user can create their own user document.
       allow create: if isSignedIn() && isOwner(userId) &&
-                       request.resource.data.name is string &&
-                       request.resource.data.email == request.auth.email &&
-                       (
-                         (request.resource.data.role == 'teacher' && 
-                          request.resource.data.teacherCode is string &&
-                          request.resource.data.teacherCode.size() == 6) ||
-                         (request.resource.data.role == 'student' && 
-                          request.resource.data.teacherId is string)
-                       );
+                   request.resource.data.name is string &&
+                   request.resource.data.email == request.auth.email &&
+                   (
+                     (request.resource.data.role == 'teacher' && 
+                      request.resource.data.teacherCode is string &&
+                      request.resource.data.teacherCode.size() == 6) ||
+                     (request.resource.data.role == 'student' && 
+                      request.resource.data.teacherId is string)
+                   );
 
       // A user can only read their own document, or a teacher can read their student's document.
       allow read: if isSignedIn() && 
