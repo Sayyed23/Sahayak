@@ -196,7 +196,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
       } catch (error: any) {
         // If there's an error during the process, especially after auth user creation,
         // it's crucial to delete the auth user to allow them to try again.
-        if (auth.currentUser) {
+        if (auth.currentUser && auth.currentUser.email === values.email) {
             await auth.currentUser.delete().catch(e => console.error("Failed to delete auth user on signup error:", e));
         }
 

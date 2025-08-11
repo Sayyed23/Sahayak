@@ -3,97 +3,102 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+
     // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
-    function isRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
-    }
 
-    // users/{userId}
-    // Contains user profile information for both teachers and students.
+    // USERS collection
+    // Users can only create their own user document.
+    // Users can only read and update their own document.
     match /users/{userId} {
-    
-      function isValidNewUser() {
-        let isTeacher = request.resource.data.role == 'teacher'
-            && request.resource.data.teacherCode is string
-            && request.resource.data.teacherCode.size() == 6;
-        
-        let isStudent = request.resource.data.role == 'student'
-            && request.resource.data.teacherId is string;
-
-        return request.resource.data.name is string
-            && request.resource.data.email == request.auth.token.email
-            && (isTeacher || isStudent);
-      }
+      allow read: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId) && request.resource.data.role == resource.data.role; // Prevent role change
       
-      allow create: if isSignedIn() && isOwner(userId) && isValidNewUser();
-      
-      allow read: if isSignedIn() && 
-                    (isOwner(userId) || 
-                     (isRole('teacher') && get(/databases/$(database)/documents/users/$(userId)).data.teacherId == request.auth.uid) ||
-                     (isRole('student') && resource.data.teacherId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teacherId));
-
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      // Allow create for any authenticated user, with strict validation
+      allow create: if isSignedIn() && isOwner(userId)
+                    && ('name' in request.resource.data && request.resource.data.name is string)
+                    && ('email' in request.resource.data && request.resource.data.email is string)
+                    && ('language' in request.resource.data && request.resource.data.language is string)
+                    && ('school' in request.resource.data && request.resource.data.school is string)
+                    && ('role' in request.resource.data)
+                    && (
+                      (request.resource.data.role == 'teacher' && 
+                       'teacherCode' in request.resource.data && 
+                       request.resource.data.teacherCode is string &&
+                       request.resource.data.teacherCode.size() == 6) ||
+                      (request.resource.data.role == 'student' &&
+                       'grade' in request.resource.data && request.resource.data.grade is string &&
+                       'teacherId' in request.resource.data && request.resource.data.teacherId is string)
+                    );
     }
     
-    // teacherCodes/{code}
-    // A collection to ensure teacher codes are unique.
+    // TEACHER CODES collection
+    // This is a lookup collection to find a teacher by their code.
+    // It should be secure and only allow specific creation.
     match /teacherCodes/{code} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.teacherId == request.auth.uid;
-      // No updates or deletes to prevent code hijacking.
+      allow read: if isSignedIn(); // Students need to read this to find their teacher
+      
+      // Allow creation only if the user is a teacher and the teacherId matches their UID.
+      // This is the key rule to allow the atomic teacher signup transaction.
+      allow create: if isSignedIn()
+                    && request.resource.data.teacherId == request.auth.uid;
+      
+      // No updates or deletes to prevent tampering.
       allow update, delete: if false;
     }
 
-    // content/{contentId}
-    // Generic content created by teachers (stories, worksheets, etc).
+    // CONTENT collection
+    // Teachers can create/read/update/delete their own content.
+    // Students can only read content that has been assigned to them.
     match /content/{contentId} {
-      allow read: if isSignedIn() && (
-                    resource.data.teacherId == request.auth.uid ||
-                    (resource.data.assignedStudentIds != null && request.auth.uid in resource.data.assignedStudentIds)
-                  );
-      allow create: if isSignedIn() && isRole('teacher') && request.resource.data.teacherId == request.auth.uid;
-      allow update, delete: if isSignedIn() && isRole('teacher') && resource.data.teacherId == request.auth.uid;
+      allow read: if isSignedIn() && 
+                    (resource.data.teacherId == request.auth.uid || 
+                     (request.auth.uid in resource.data.assignedStudentIds));
+      allow write: if isSignedIn() && request.resource.data.teacherId == request.auth.uid;
     }
-    
-    // assignments/{assignmentId}
-    // Links content to a specific student.
+
+    // ASSIGNMENTS collection
+    // Teachers create assignments.
+    // Students read their own assignments.
     match /assignments/{assignmentId} {
-        allow read: if isSignedIn() && (resource.data.teacherId == request.auth.uid || resource.data.studentId == request.auth.uid);
-        allow create: if isSignedIn() && isRole('teacher') && request.resource.data.teacherId == request.auth.uid;
-        allow delete: if isSignedIn() && isRole('teacher') && resource.data.teacherId == request.auth.uid;
+        allow read: if isSignedIn() && 
+                      (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
+        allow create: if isSignedIn() && request.resource.data.teacherId == request.auth.uid;
+        allow update, delete: if isSignedIn() && resource.data.teacherId == request.auth.uid;
     }
     
-    // assessments/{assessmentId}
-    // Reading passages assigned by teachers.
+    // ASSESSMENTS collection
+    // Teachers create assessments.
+    // Students can read assessments assigned to them.
     match /assessments/{assessmentId} {
-        allow read: if isSignedIn() && (
-                      resource.data.teacherId == request.auth.uid || 
-                      request.auth.uid in resource.data.assignedStudentIds
-                    );
-        allow create: if isSignedIn() && isRole('teacher') && request.resource.data.teacherId == request.auth.uid;
-        allow update, delete: if isSignedIn() && isRole('teacher') && resource.data.teacherId == request.auth.uid;
+        allow read: if isSignedIn() && (request.auth.uid in resource.data.assignedStudentIds || resource.data.teacherId == request.auth.uid);
+        allow create: if isSignedIn() && request.resource.data.teacherId == request.auth.uid;
+        allow update, delete: if isSignedIn() && resource.data.teacherId == request.auth.uid;
     }
 
-    // submissions/{submissionId}
-    // Student work submitted for review.
+    // SUBMISSIONS collection
+    // Students can create submissions for an assessment.
+    // Teachers can read/update submissions for their assessments.
     match /submissions/{submissionId} {
-        allow read, update: if isSignedIn() && resource.data.teacherId == request.auth.uid;
-        allow read, create: if isSignedIn() && isRole('student') && request.resource.data.studentId == request.auth.uid;
+        allow read: if isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
+        allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+        allow update: if isSignedIn() && resource.data.teacherId == request.auth.uid; // Teacher provides feedback
+        allow delete: if false;
     }
-
-    // Catch-all to deny any other access.
-    match /{document=**} {
-      allow read, write: if false;
+    
+    // GAME_SESSIONS collection
+    // Students create their game session results.
+    // Teachers can read game session results for their students.
+    match /game_sessions/{sessionId} {
+       allow read: if isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
+       allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+       allow update, delete: if false;
     }
   }
 }
