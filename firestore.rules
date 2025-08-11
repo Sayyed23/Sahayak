@@ -1,116 +1,137 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
+    
+    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
-
+    
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-
-    function isRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    
+    function isStudent() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
     }
 
     function isTeacher() {
-      return isRole('teacher');
-    }
-    
-    function isStudent() {
-      return isRole('student');
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
     }
 
+    //
+    // Rules for the 'users' collection
+    //
     match /users/{userId} {
-      // CREATE:
-      // - Anyone can create a user document (for signup).
-      // - The document ID must match the creator's UID.
-      // - Data must be valid for the specified role.
-      allow create: if isSignedIn()
-                      && isOwner(userId)
-                      && request.resource.data.role in ['teacher', 'student']
-                      && request.resource.data.name is string
-                      && request.resource.data.school is string
-                      && request.resource.data.language is string
-                      && (
-                        (request.resource.data.role == 'teacher' && request.resource.data.teacherCode is string && request.resource.data.teacherCode.size() == 6) ||
-                        (request.resource.data.role == 'student' && request.resource.data.teacherId is string && request.resource.data.grade is string)
-                      );
-                      
-      // READ: 
-      // - Users can read their own profile.
-      // - Students can read their assigned teacher's profile.
-      allow read: if isSignedIn() && (isOwner(userId) || (isStudent() && resource.data.role == 'teacher' && resource.id == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teacherId));
+      // ANY authenticated user can create their own user document.
+      allow create: if isSignedIn() && isOwner(userId) &&
+                       request.resource.data.name is string &&
+                       request.resource.data.email == request.auth.email &&
+                       (
+                         (request.resource.data.role == 'teacher' && 
+                          request.resource.data.teacherCode is string &&
+                          request.resource.data.teacherCode.size() == 6) ||
+                         (request.resource.data.role == 'student' && 
+                          request.resource.data.teacherId is string)
+                       );
 
-      // UPDATE:
-      // - Users can update their own profile.
-      // - Cannot change role or teacher code after creation.
-      allow update: if isSignedIn() 
-                    && isOwner(userId)
-                    && request.resource.data.role == resource.data.role
-                    && request.resource.data.teacherCode == resource.data.teacherCode;
-                    
-      // DELETE: No one can delete user profiles.
+      // A user can only read their own document, or a teacher can read their student's document.
+      allow read: if isSignedIn() && 
+                   (isOwner(userId) || (isTeacher() && get(/databases/$(database)/documents/users/$(userId)).data.teacherId == request.auth.uid));
+      
+      // A user can only update their own document. They cannot change their role, email, or teacher code.
+      allow update: if isSignedIn() && isOwner(userId) &&
+                     request.resource.data.role == resource.data.role &&
+                     request.resource.data.email == resource.data.email &&
+                     (!('teacherCode' in request.resource.data) || request.resource.data.teacherCode == resource.data.teacherCode);
+      
+      // No one can delete user documents.
       allow delete: if false;
     }
 
+    //
+    // Rules for the 'teacherCodes' collection
+    //
     match /teacherCodes/{code} {
-      // CREATE: A user can create a teacher code document if:
-      // - They are creating it for themselves (teacherId matches their UID).
-      // - This is part of the teacher signup transaction.
-      allow create: if isSignedIn() && request.resource.data.teacherId == request.auth.uid;
-      
-      // READ: Anyone can read a teacher code document to validate it.
-      allow read: if true;
+      // ONLY a teacher can create a teacher code document IF the teacherId matches their UID.
+      // This is part of the teacher signup transaction.
+      allow create: if isSignedIn() &&
+                       request.resource.data.teacherId == request.auth.uid;
 
-      // UPDATE/DELETE: Not allowed.
-      allow update, delete: if false;
+      // No one can read, update, or delete teacher codes directly.
+      allow read, update, delete: if false;
     }
-    
+
+    //
+    // Rules for general content
+    //
     match /content/{contentId} {
-        // Teachers can create content.
-        allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+        // Teachers can create any content.
+        allow create: if isSignedIn() && isTeacher() && request.resource.data.teacherId == request.auth.uid;
         
-        // Teachers can read their own content.
-        // Students can read content if their ID is in the 'assignedStudentIds' array.
-        allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
-                      (isStudent() && request.auth.uid in resource.data.assignedStudentIds);
-
-        // Teachers can update/delete their own content.
-        allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
-    }
-
-    match /assignments/{assignmentId} {
-      // Assignments are created by the system/teacher logic, read by assigned students.
-      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) || 
-                    (isStudent() && resource.data.studentId == request.auth.uid);
-      allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
-    }
-
-    match /assessments/{assessmentId} {
-        // Teachers can create assessments.
-        allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
-        // Teachers can read their own assessments.
-        // Students can read assessments assigned to them.
-        allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
-                      (isStudent() && request.auth.uid in resource.data.assignedStudentIds);
-        allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+        // Teachers can manage their own content.
+        // Students can only read content if their ID is in the `assignedStudentIds` array.
+        allow read, update, delete: if isSignedIn() && 
+                                     (
+                                       (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                                       (isStudent() && resource.data.assignedStudentIds.hasAny([request.auth.uid]))
+                                     );
     }
     
+    //
+    // Rules for assignments
+    //
+    match /assignments/{assignmentId} {
+        // A teacher can create an assignment.
+        allow create: if isSignedIn() && isTeacher() && request.resource.data.teacherId == request.auth.uid;
+        
+        // A student can only read an assignment if it's assigned to them.
+        // A teacher can read any assignments they created.
+        allow read: if isSignedIn() &&
+                     (
+                       (isStudent() && resource.data.studentId == request.auth.uid) ||
+                       (isTeacher() && resource.data.teacherId == request.auth.uid)
+                     );
+        
+        // Nobody can update or delete assignment documents directly after creation.
+        allow update, delete: if false;
+    }
+
+    //
+    // Rules for assessments (the passage definition)
+    //
+    match /assessments/{assessmentId} {
+        // A teacher can create an assessment.
+        allow create: if isSignedIn() && isTeacher() && request.resource.data.teacherId == request.auth.uid;
+        
+        // A student can read an assessment if it's assigned to them.
+        // A teacher can read assessments they created.
+        allow read: if isSignedIn() &&
+                     (
+                        (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                        (isStudent() && resource.data.assignedStudentIds.hasAny([request.auth.uid]))
+                     );
+        
+        allow update, delete: if isSignedIn() && isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
+
+    //
+    // Rules for submissions (student's work)
+    //
     match /submissions/{submissionId} {
-        // Students can create submissions.
-        allow create: if isStudent() && request.resource.data.studentId == request.auth.uid;
-        // Teachers can read submissions for their students.
-        // Students can read their own submissions.
-        allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
-                      (isStudent() && resource.data.studentId == request.auth.uid);
-        // Teachers can update submissions with feedback.
-        allow update: if isTeacher() && resource.data.teacherId == request.auth.uid;
+        // A student can create a submission.
+        allow create: if isSignedIn() && isStudent() && request.resource.data.studentId == request.auth.uid;
+        
+        // A teacher can read and update submissions in their class (e.g., to add feedback).
+        // A student can read their own submission.
+        allow read, update: if isSignedIn() &&
+                             (
+                                (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                                (isStudent() && resource.data.studentId == request.auth.uid)
+                             );
+        
+        allow delete: if false;
     }
   }
 }
