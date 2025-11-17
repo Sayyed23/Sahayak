@@ -164,7 +164,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
               teacherCode: { teacherId: user.uid }
           },
         });
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.dispatchEvent(new CustomEvent('permission-error', { detail: permissionError }));
         
         // Clean up the created auth user since the db transaction failed
         await user.delete();
@@ -217,7 +217,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
           operation: 'create',
           requestResourceData: studentData,
         });
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.dispatchEvent(new CustomEvent('permission-error', { detail: permissionError }));
         await user.delete();
         setIsLoading(false);
       });
