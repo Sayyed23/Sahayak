@@ -131,45 +131,45 @@ export function SignUpForm({ role }: SignUpFormProps) {
     // Step 2: Perform Firestore operations
     if (role === 'teacher') {
       const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
-      const teacherData = {
-        uid: user.uid,
-        name: teacherValues.name,
-        email: user.email,
-        role: "teacher",
-        school: teacherValues.school,
-        language: teacherValues.language,
-        teacherCode: generateTeacherCode(),
-      };
       
-      runTransaction(db, async (transaction) => {
-        const userDocRef = doc(db as Firestore, "users", user.uid);
-        const codeDocRef = doc(db as Firestore, "teacherCodes", teacherData.teacherCode);
-        
-        transaction.set(userDocRef, teacherData);
-        transaction.set(codeDocRef, { teacherId: user.uid });
-      }).then(() => {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const teacherCode = generateTeacherCode(); // Generate code inside transaction
+          const userDocRef = doc(db as Firestore, "users", user.uid);
+          const codeDocRef = doc(db as Firestore, "teacherCodes", teacherCode);
+
+          const teacherData = {
+            uid: user.uid,
+            name: teacherValues.name,
+            email: user.email,
+            role: "teacher",
+            school: teacherValues.school,
+            language: teacherValues.language,
+            teacherCode: teacherCode,
+          };
+
+          transaction.set(userDocRef, teacherData);
+          transaction.set(codeDocRef, { teacherId: user.uid });
+        });
+
         toast({
           title: t("Account Created"),
           description: t("Welcome! Your account has been created successfully."),
         });
-        router.push(`/dashboard/${role}`);
+        router.push(`/dashboard/teacher`);
         router.refresh();
-      }).catch(async (error) => {
-        // This is where we implement contextual error handling
-        const permissionError = new FirestorePermissionError({
-          path: `/users/${user.uid} and /teacherCodes/${teacherData.teacherCode}`,
-          operation: 'create', // This was a transactional create
-          requestResourceData: {
-              user: teacherData,
-              teacherCode: { teacherId: user.uid }
-          },
-        });
-        errorEmitter.dispatchEvent(new CustomEvent('permission-error', { detail: permissionError }));
-        
+
+      } catch (error) {
+        console.error("Teacher signup transaction failed: ", error);
+        toast({
+            title: t("Sign up failed"),
+            description: t("Could not create your teacher account. Please try again."),
+            variant: "destructive"
+        })
         // Clean up the created auth user since the db transaction failed
         await user.delete();
-        setIsLoading(false);
-      });
+      }
+
     } else { // Student role
       const studentValues = values as z.infer<typeof studentSignUpSchema>;
       const teacherCode = studentValues.teacherCode.toUpperCase();
@@ -204,24 +204,25 @@ export function SignUpForm({ role }: SignUpFormProps) {
       };
 
       const userDocRef = doc(db, 'users', user.uid);
-      setDoc(userDocRef, studentData).then(() => {
+      try {
+        await setDoc(userDocRef, studentData);
         toast({
           title: t("Account Created"),
           description: t("Welcome! Your account has been created successfully."),
         });
-        router.push(`/dashboard/${role}`);
+        router.push(`/dashboard/student`);
         router.refresh();
-      }).catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
-          path: userDocRef.path,
-          operation: 'create',
-          requestResourceData: studentData,
-        });
-        errorEmitter.dispatchEvent(new CustomEvent('permission-error', { detail: permissionError }));
+      } catch (error) {
+         console.error("Student signup failed: ", error);
+         toast({
+            title: t("Sign up failed"),
+            description: t("Could not create your student account. Please try again."),
+            variant: "destructive"
+        })
         await user.delete();
-        setIsLoading(false);
-      });
+      }
     }
+    setIsLoading(false);
   }
 
   return (
