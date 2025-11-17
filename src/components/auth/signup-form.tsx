@@ -17,8 +17,6 @@ import { useToast } from "@/hooks/use-toast"
 import { auth, db } from "@/lib/firebase"
 import { Loader2 } from "lucide-react"
 import { useTranslation } from "@/hooks/use-translation"
-import { errorEmitter } from "@/firebase/error-emitter"
-import { FirestorePermissionError } from "@/firebase/errors"
 
 type UserRole = "teacher" | "student"
 
@@ -281,7 +279,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                   <FormItem>
                     <FormLabel>{t("School")}</FormLabel>
                     <FormControl>
-                      <Input placeholder={t("Your school's name")} {...field} />
+                      <Input placeholder={t("Your school\'s name")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
