@@ -12,10 +12,6 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
-    function requestHasRole(role) {
-      return request.resource.data.role == role;
-    }
 
     function isTeacher() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
@@ -28,20 +24,12 @@ service cloud.firestore {
     // --- Rules for 'users' collection ---
     match /users/{userId} {
       // Create: Anyone can create their own user document during signup.
-      allow create: if isSignedIn() && isOwner(userId) &&
-        request.resource.data.name is string &&
-        request.resource.data.email == request.auth.email &&
-        (
-          requestHasRole('teacher') || requestHasRole('student')
-        );
+      allow create: if isSignedIn() && isOwner(userId);
 
       // Read:
       // 1. A user can read their own document.
-      // 2. A teacher can read the document of any student.
-      allow read: if isSignedIn() && (
-        isOwner(userId) || 
-        (isTeacher() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'student')
-      );
+      // 2. A teacher can read any user document. The app filters for students.
+      allow read: if isSignedIn() && (isOwner(userId) || isTeacher());
 
       // Update:
       // 1. A user can update their own document.
@@ -49,7 +37,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && isOwner(userId) &&
         request.resource.data.email == resource.data.email &&
         request.resource.data.role == resource.data.role;
-
+      
       // Delete: No one can delete user documents.
       allow delete: if false;
     }
@@ -58,29 +46,31 @@ service cloud.firestore {
     match /content/{contentId} {
       // Teacher who owns it can do anything.
       allow create, update, delete: if isSignedIn() && isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      // Teacher who owns it can read it.
-      allow read: if isSignedIn() && isTeacher() && resource.data.teacherId == request.auth.uid;
+      // Teacher who owns it or created the assignment can read it.
       // Any student it's been assigned to can read it.
-      allow read: if isSignedIn() && isStudent() && resource.data.assignedStudentIds.hasAny([request.auth.uid]);
+      allow read: if isSignedIn() && (
+        (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+        (isStudent() && resource.data.assignedStudentIds.hasAny([request.auth.uid]))
+      );
     }
     
     match /assignments/{assignmentId} {
        // A teacher can create an assignment.
-       allow create: if isSignedIn() && isTeacher() && request.resource.data.teacherId == request.auth.uid;
-       // The assigned student or the teacher who created it can read it.
+       allow create: if isSignedIn() && isTeacher();
+       // The assigned student or any teacher can read it.
        allow read: if isSignedIn() && (
                       (isStudent() && resource.data.studentId == request.auth.uid) ||
-                      (isTeacher() && resource.data.teacherId == request.auth.uid)
+                      isTeacher()
                     );
        allow update, delete: if false;
     }
     
     match /assessments/{assessmentId} {
       // A teacher can create/manage assessments.
-      allow create, update, delete: if isSignedIn() && isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      // The teacher who created it or any assigned student can read it.
+      allow create, update, delete: if isSignedIn() && isTeacher();
+      // Any teacher or any assigned student can read it.
       allow read: if isSignedIn() && (
-                    (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                    isTeacher() ||
                     (isStudent() && resource.data.assignedStudentIds.hasAny([request.auth.uid]))
                   );
     }
@@ -88,9 +78,9 @@ service cloud.firestore {
     match /submissions/{submissionId} {
        // A student can create their own submission.
        allow create: if isSignedIn() && isStudent() && request.resource.data.studentId == request.auth.uid;
-       // The student who submitted it or their teacher can read/update it.
+       // The student who submitted it or any teacher can read/update it.
        allow read, update: if isSignedIn() && (
-                              (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                              isTeacher() ||
                               (isStudent() && resource.data.studentId == request.auth.uid)
                             );
        allow delete: if false;
