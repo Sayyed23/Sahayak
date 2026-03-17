@@ -1,4 +1,3 @@
-
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -70,7 +69,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
-  const signupSchema = role === "teacher" ? teacherSignUpSchema : studentSignUpSchema
+  const signupSchema = role === "teacher" ? teacherSignUpSchema : studentSignUpSchema;
 
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
@@ -95,19 +94,14 @@ export function SignUpForm({ role }: SignUpFormProps) {
 
   // Ensure unregistered users in auth get signed out
   useEffect(() => {
-    let active = true
     if (auth?.currentUser && db) {
-      getDoc(doc(db, "users", auth.currentUser.uid)).then((docSnap) => {
-        if (active && !docSnap.exists()) {
-          form.setValue('name', auth.currentUser?.displayName || '');
-          form.setValue('email', auth.currentUser?.email || '');
-        }
-      })
+        getDoc(doc(db, "users", auth.currentUser.uid)).then(docSnap => {
+            if (!docSnap.exists()) {
+                if (auth) signOut(auth);
+            }
+        });
     }
-    return () => {
-      active = false
-    }
-  }, [form])
+  }, []);
 
   const processNewUser = async (user: any, values: z.infer<typeof signupSchema>) => {
     // This function contains the logic to create the DB record after auth user is created.
