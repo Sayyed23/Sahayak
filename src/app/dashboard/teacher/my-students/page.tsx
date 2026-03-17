@@ -30,7 +30,7 @@ export default function MyStudentsPage() {
     if (!user || !db) return
 
     setIsLoading(true)
-    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"), where("teacherId", "==", user.uid))
+    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
 
     const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
@@ -127,7 +127,7 @@ export default function MyStudentsPage() {
             </div>
             <CardTitle className="font-headline">{t("No Students Found")}</CardTitle>
             <CardDescription className="mt-2 max-w-sm">
-                {t("Students will appear here once they sign up with your Teacher Code. You can find your code in the Settings page.")}
+                {t("Students will appear here once they sign up.")}
             </CardDescription>
         </Card>
       )}

@@ -52,7 +52,7 @@ export default function AssignAssessmentPage() {
   useEffect(() => {
     if (!db || !user) return
 
-    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"), where("teacherId", "==", user.uid))
+    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
 
     const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
@@ -296,7 +296,7 @@ export default function AssignAssessmentPage() {
                     )
                   })
                 ) : (
-                  <p className="text-sm text-muted-foreground p-4 text-center">{t("No students found. New students will appear here once they sign up with your teacher code.")}</p>
+                  <p className="text-sm text-muted-foreground p-4 text-center">{t("No students found. New students will appear here once they sign up.")}</p>
                 )}
               </Accordion>
             </CardContent>

@@ -13,12 +13,11 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useRouter } from "next/navigation"
 
 const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -30,12 +29,9 @@ export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth()
   const { t, language, setLanguage } = useTranslation()
   const { toast } = useToast()
-  const router = useRouter()
   
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [teacherName, setTeacherName] = useState("")
-  const [teacherId, setTeacherId] = useState<string | null>(null)
 
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -63,15 +59,6 @@ export default function ProfilePage() {
           
           if (userData.language) {
             setLanguage(userData.language);
-          }
-
-          setTeacherId(userData.teacherId || null);
-          if (userData.teacherId) {
-            const teacherRef = doc(db, "users", userData.teacherId)
-            const teacherSnap = await getDoc(teacherRef)
-            if (teacherSnap.exists()) {
-              setTeacherName(teacherSnap.data().name)
-            }
           }
         }
         setIsLoading(false)
@@ -123,7 +110,7 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[...Array(6)].map((_, i) => (
+              {[...Array(5)].map((_, i) => (
                 <div key={i} className="space-y-2">
                   <Skeleton className="h-5 w-12" />
                   <Skeleton className="h-10 w-full" />
@@ -216,10 +203,6 @@ export default function ProfilePage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="teacher">{t("My Teacher")}</Label>
-                  <Input id="teacher" value={teacherName || t("Not assigned")} disabled />
-                </div>
               </div>
             </CardContent>
             <CardFooter>
@@ -231,77 +214,6 @@ export default function ProfilePage() {
           </form>
         </Form>
       </Card>
-
-      {!isLoading && !teacherId && (
-        <JoinClassCard />
-      )}
     </div>
   )
-}
-
-function JoinClassCard() {
-    const { t } = useTranslation();
-    const { toast } = useToast();
-    const { user } = useAuth();
-    const router = useRouter();
-    const [teacherCode, setTeacherCode] = useState("");
-    const [isJoining, setIsJoining] = useState(false);
-
-    const handleJoinClass = async () => {
-        if (!teacherCode || teacherCode.length !== 6) {
-            toast({ title: t("Invalid Code"), description: t("Please enter a valid 6-character teacher code."), variant: "destructive" });
-            return;
-        }
-        if (!user || !db) return;
-
-        setIsJoining(true);
-        const code = teacherCode.toUpperCase();
-        
-        try {
-            const q = query(collection(db, "users"), where("teacherCode", "==", code), where("role", "==", "teacher"));
-            const querySnapshot = await getDocs(q);
-
-            if (querySnapshot.empty) {
-                toast({ title: t("Teacher Not Found"), description: t("No teacher found with that code. Please check it and try again."), variant: "destructive" });
-                setIsJoining(false);
-                return;
-            }
-
-            const newTeacherId = querySnapshot.docs[0].id;
-            const studentRef = doc(db, "users", user.uid);
-            await updateDoc(studentRef, { teacherId: newTeacherId });
-
-            toast({ title: t("Success!"), description: t("You have joined your teacher's class.") });
-            router.refresh();
-        } catch (error) {
-            console.error("Error joining class:", error);
-            toast({ title: t("Error"), description: t("Could not join the class. Please try again."), variant: "destructive" });
-        } finally {
-            setIsJoining(false);
-        }
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t("Join a Class")}</CardTitle>
-                <CardDescription>{t("Enter your teacher's 6-character code to connect your account.")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="flex items-center gap-2">
-                    <Input 
-                        placeholder={t("ENTERCODE")}
-                        value={teacherCode}
-                        onChange={(e) => setTeacherCode(e.target.value)}
-                        maxLength={6}
-                        className="font-mono text-lg tracking-widest uppercase"
-                    />
-                    <Button onClick={handleJoinClass} disabled={isJoining}>
-                        {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {t("Join")}
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
-    );
 }

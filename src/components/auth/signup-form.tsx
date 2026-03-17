@@ -24,10 +24,6 @@ import { FirestorePermissionError } from "@/firebase/errors"
 
 type UserRole = "teacher" | "student"
 
-function generateTeacherCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase()
-}
-
 // Schemas
 const baseSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -41,7 +37,6 @@ const teacherSignUpSchema = baseSchema
 
 const studentSignUpSchema = baseSchema.extend({
   grade: z.string().min(1, { message: "Please select your grade." }),
-  teacherCode: z.string().length(6, { message: "Teacher code must be 6 characters." }).optional().or(z.literal("")),
 })
 
 const emailPasswordSchema = z.object({
@@ -95,7 +90,6 @@ export function SignUpForm({ role }: SignUpFormProps) {
             school: "",
             language: "",
             grade: "",
-            teacherCode: "",
           },
   })
 
@@ -120,77 +114,36 @@ export function SignUpForm({ role }: SignUpFormProps) {
      if (role === 'teacher') {
       const teacherValues = values as z.infer<typeof teacherSignUpSchema>;
       
+      const teacherData = {
+        uid: user.uid,
+        name: teacherValues.name,
+        email: user.email,
+        role: "teacher",
+        school: teacherValues.school,
+        language: teacherValues.language,
+      };
+
       try {
-        await runTransaction(db as Firestore, async (transaction) => {
-          let teacherCode = generateTeacherCode();
-          let codeDocRef = doc(db as Firestore, "teacherCodes", teacherCode);
-          let codeDoc = await transaction.get(codeDocRef);
-          // Ensure code is unique
-          while (codeDoc.exists()) {
-            teacherCode = generateTeacherCode();
-            codeDocRef = doc(db as Firestore, "teacherCodes", teacherCode);
-            codeDoc = await transaction.get(codeDocRef);
-          }
-
-          const userDocRef = doc(db as Firestore, "users", user.uid);
-          
-          const teacherData = {
-            uid: user.uid,
-            name: teacherValues.name,
-            email: user.email,
-            role: "teacher",
-            school: teacherValues.school,
-            language: teacherValues.language,
-            teacherCode: teacherCode,
-          };
-
-          transaction.set(userDocRef, teacherData);
-          transaction.set(codeDocRef, { teacherId: user.uid });
-        });
-
+        await setDoc(doc(db as Firestore, "users", user.uid), teacherData);
         toast({
           title: t("Account Created"),
           description: t("Welcome! Your account has been created successfully."),
         });
         router.push(`/dashboard/teacher`);
         router.refresh();
-
       } catch (error) {
-        console.error("Teacher signup transaction failed: ", error);
-        
-        const permissionError = new FirestorePermissionError({
-          path: `/users/${user.uid} and /teacherCodes/<code>`,
-          operation: 'write',
-          requestResourceData: {
-            user: { name: values.name, email: user.email, role: 'teacher' },
-            teacherCode: 'generated-code'
-          },
-        });
-        errorEmitter.dispatchEvent(new CustomEvent('permission-error', { detail: permissionError }));
-        
-        // Clean up the created auth user since the db transaction failed
+        console.error("Teacher signup failed: ", error);
+        // Clean up the created auth user since the db write failed
         await user.delete();
+        toast({
+            title: t("Sign Up Failed"),
+            description: t("Could not create your teacher account. Please try again."),
+            variant: "destructive"
+        });
       }
 
     } else { // Student role
       const studentValues = values as z.infer<typeof studentSignUpSchema>;
-      const teacherCode = studentValues.teacherCode?.toUpperCase();
-      let teacherId: string | null = null;
-
-      if (teacherCode && teacherCode.length === 6) {
-        const q = query(collection(db as Firestore, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          toast({
-            title: t("Invalid Teacher Code"),
-            description: t("No teacher was found for the code you entered. You can join a class later from your profile."),
-            variant: "destructive",
-          });
-        } else {
-          teacherId = querySnapshot.docs[0].id;
-        }
-      }
       
       const studentData = {
           uid: user.uid,
@@ -200,7 +153,6 @@ export function SignUpForm({ role }: SignUpFormProps) {
           school: studentValues.school,
           language: studentValues.language,
           grade: studentValues.grade,
-          teacherId: teacherId, // This can be null if no code was entered or if code was invalid
       };
 
       const userDocRef = doc(db as Firestore, 'users', user.uid);
@@ -379,25 +331,6 @@ export function SignUpForm({ role }: SignUpFormProps) {
                             ))}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="teacherCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("Teacher Code")} ({t("Optional")})</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder={t("Enter 6-character code")}
-                            {...field}
-                            maxLength={6}
-                            className="uppercase tracking-widest"
-                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                          />
-                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

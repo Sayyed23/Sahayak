@@ -81,7 +81,7 @@ export default function MyContentPage() {
     if (!user || !db) return
 
     setIsLoadingStudents(true)
-    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"), where("teacherId", "==", user.uid))
+    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
     const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []
       querySnapshot.forEach((doc) => {

@@ -13,7 +13,7 @@ import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { Copy, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useTranslation } from "@/hooks/use-translation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -31,7 +31,6 @@ export default function SettingsPage() {
   const { toast } = useToast()
   const { t, language, setLanguage } = useTranslation()
   
-  const [teacherCode, setTeacherCode] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -56,7 +55,6 @@ export default function SettingsPage() {
             name: data.name || '',
             school: data.school || '',
           })
-          setTeacherCode(data.teacherCode || "")
         }
         setIsLoading(false)
       }
@@ -90,15 +88,6 @@ export default function SettingsPage() {
     }
   }
 
-  const handleCopyCode = () => {
-    if (!teacherCode) return;
-    navigator.clipboard.writeText(teacherCode)
-    toast({
-      title: t("Copied!"),
-      description: t("Teacher code copied to clipboard."),
-    })
-  }
-
   if (isLoading) {
     return (
       <div className="space-y-8">
@@ -125,15 +114,6 @@ export default function SettingsPage() {
             </CardFooter>
           </Card>
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-40" />
-                <Skeleton className="h-5 w-full max-w-sm mt-2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-10 w-full" />
-              </CardContent>
-            </Card>
             <Card>
               <CardHeader>
                 <Skeleton className="h-6 w-36" />
@@ -221,25 +201,6 @@ export default function SettingsPage() {
         </Card>
         
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Your Teacher Code")}</CardTitle>
-              <CardDescription>{t("Students use this code to join your classroom.")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {teacherCode ? (
-                  <div className="flex items-center gap-2">
-                    <Input value={teacherCode} readOnly className="font-mono text-lg tracking-widest" />
-                    <Button variant="outline" size="icon" onClick={handleCopyCode}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{t("Generating code...")}</p>
-                )}
-            </CardContent>
-          </Card>
-          
           <Card>
             <CardHeader>
               <CardTitle>{t("App Settings")}</CardTitle>

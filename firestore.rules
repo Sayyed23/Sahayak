@@ -27,79 +27,31 @@ service cloud.firestore {
 
     // --- Rules for 'users' collection ---
     match /users/{userId} {
-      // Create:
-      // A user document can only be created as part of a specific transaction (teacher signup)
-      // or if the student provides a valid teacherId or no teacherId.
-      allow create: if (
-        // Teacher signup: Must create a corresponding teacherCode document
-        // This is handled by the rule on teacherCodes, which allows the transaction.
-        requestHasRole('teacher') &&
-        request.resource.data.name is string &&
-        request.resource.data.email == request.auth.email &&
-        request.resource.data.teacherCode is string && request.resource.data.teacherCode.size() == 6
-      ) || (
-        // Student signup:
-        requestHasRole('student') &&
+      // Create: Anyone can create their own user document during signup.
+      allow create: if isSignedIn() && isOwner(userId) &&
         request.resource.data.name is string &&
         request.resource.data.email == request.auth.email &&
         (
-          // Case 1: Student provides a valid teacherId
-          (
-            request.resource.data.teacherId is string &&
-            exists(/databases/$(database)/documents/users/$(request.resource.data.teacherId)) &&
-            get(/databases/$(database)/documents/users/$(request.resource.data.teacherId)).data.role == 'teacher'
-          ) ||
-          // Case 2: Student does not provide a teacherId
-          (
-            request.resource.data.teacherId == null
-          )
-        )
-      );
+          requestHasRole('teacher') || requestHasRole('student')
+        );
 
       // Read:
       // 1. A user can read their own document.
-      // 2. A teacher can read the document of their own students.
+      // 2. A teacher can read the document of any student.
       allow read: if isSignedIn() && (
         isOwner(userId) || 
-        (isTeacher() && get(/databases/$(database)/documents/users/$(userId)).data.teacherId == request.auth.uid)
+        (isTeacher() && get(/databases/$(database)/documents/users/$(userId)).data.role == 'student')
       );
 
       // Update:
       // 1. A user can update their own document.
       // 2. They CANNOT change their role or email after creation.
-      // 3. Teachers CANNOT change their teacherCode.
-      // 4. Students can set their teacherId ONCE if it is currently null.
       allow update: if isSignedIn() && isOwner(userId) &&
         request.resource.data.email == resource.data.email &&
-        request.resource.data.role == resource.data.role &&
-        (resource.data.role == 'teacher' ? request.resource.data.teacherCode == resource.data.teacherCode : true) &&
-        (resource.data.role == 'student' ?
-            (
-                (
-                    resource.data.teacherId == null &&
-                    request.resource.data.teacherId is string &&
-                    exists(/databases/$(database)/documents/users/$(request.resource.data.teacherId)) &&
-                    get(/databases/$(database)/documents/users/$(request.resource.data.teacherId)).data.role == 'teacher'
-                ) ||
-                (
-                    request.resource.data.teacherId == resource.data.teacherId
-                )
-            )
-            : true
-        );
+        request.resource.data.role == resource.data.role;
 
       // Delete: No one can delete user documents.
       allow delete: if false;
-    }
-
-    // --- Rules for 'teacherCodes' collection ---
-    match /teacherCodes/{code} {
-      // Allow creation only if the user making the request is the teacher being referenced.
-      // This is the key to allowing the teacher signup transaction.
-      allow create: if isSignedIn() && request.resource.data.teacherId == request.auth.uid;
-
-      // No one can read, update, or delete teacher codes directly.
-      allow read, update, delete: if false;
     }
     
     // --- Rules for Content & Submissions ---
@@ -113,9 +65,9 @@ service cloud.firestore {
     }
     
     match /assignments/{assignmentId} {
-       // A teacher can create an assignment for their student.
+       // A teacher can create an assignment.
        allow create: if isSignedIn() && isTeacher() && request.resource.data.teacherId == request.auth.uid;
-       // The assigned student or the teacher can read it.
+       // The assigned student or the teacher who created it can read it.
        allow read: if isSignedIn() && (
                       (isStudent() && resource.data.studentId == request.auth.uid) ||
                       (isTeacher() && resource.data.teacherId == request.auth.uid)
@@ -126,7 +78,7 @@ service cloud.firestore {
     match /assessments/{assessmentId} {
       // A teacher can create/manage assessments.
       allow create, update, delete: if isSignedIn() && isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      // The teacher or any assigned student can read it.
+      // The teacher who created it or any assigned student can read it.
       allow read: if isSignedIn() && (
                     (isTeacher() && resource.data.teacherId == request.auth.uid) ||
                     (isStudent() && resource.data.assignedStudentIds.hasAny([request.auth.uid]))
