@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -28,7 +29,7 @@ service cloud.firestore {
     match /users/{userId} {
       // Create:
       // A user document can only be created as part of a specific transaction (teacher signup)
-      // or if the student provides a valid teacherId.
+      // or if the student provides a valid teacherId or no teacherId.
       allow create: if (
         // Teacher signup: Must create a corresponding teacherCode document
         // This is handled by the rule on teacherCodes, which allows the transaction.
@@ -37,13 +38,22 @@ service cloud.firestore {
         request.resource.data.email == request.auth.email &&
         request.resource.data.teacherCode is string && request.resource.data.teacherCode.size() == 6
       ) || (
-        // Student signup: Must have a teacherId that corresponds to a real teacher.
+        // Student signup:
         requestHasRole('student') &&
         request.resource.data.name is string &&
         request.resource.data.email == request.auth.email &&
-        request.resource.data.teacherId is string &&
-        exists(/databases/$(database)/documents/users/$(request.resource.data.teacherId)) &&
-        get(/databases/$(database)/documents/users/$(request.resource.data.teacherId)).data.role == 'teacher'
+        (
+          // Case 1: Student provides a valid teacherId
+          (
+            request.resource.data.teacherId is string &&
+            exists(/databases/$(database)/documents/users/$(request.resource.data.teacherId)) &&
+            get(/databases/$(database)/documents/users/$(request.resource.data.teacherId)).data.role == 'teacher'
+          ) ||
+          // Case 2: Student does not provide a teacherId
+          (
+            request.resource.data.teacherId == null
+          )
+        )
       );
 
       // Read:
@@ -56,11 +66,27 @@ service cloud.firestore {
 
       // Update:
       // 1. A user can update their own document.
-      // 2. They CANNOT change their role, email, or teacherCode after creation.
-      allow update: if isSignedIn() && isOwner(userId)
-                    && request.resource.data.role == resource.data.role
-                    && request.resource.data.email == resource.data.email
-                    && request.resource.data.teacherCode == resource.data.teacherCode;
+      // 2. They CANNOT change their role or email after creation.
+      // 3. Teachers CANNOT change their teacherCode.
+      // 4. Students can set their teacherId ONCE if it is currently null.
+      allow update: if isSignedIn() && isOwner(userId) &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == resource.data.role &&
+        (resource.data.role == 'teacher' ? request.resource.data.teacherCode == resource.data.teacherCode : true) &&
+        (resource.data.role == 'student' ?
+            (
+                (
+                    resource.data.teacherId == null &&
+                    request.resource.data.teacherId is string &&
+                    exists(/databases/$(database)/documents/users/$(request.resource.data.teacherId)) &&
+                    get(/databases/$(database)/documents/users/$(request.resource.data.teacherId)).data.role == 'teacher'
+                ) ||
+                (
+                    request.resource.data.teacherId == resource.data.teacherId
+                )
+            )
+            : true
+        );
 
       // Delete: No one can delete user documents.
       allow delete: if false;
@@ -70,8 +96,6 @@ service cloud.firestore {
     match /teacherCodes/{code} {
       // Allow creation only if the user making the request is the teacher being referenced.
       // This is the key to allowing the teacher signup transaction.
-      // The transaction will contain both the user doc and this doc creation.
-      // The rules engine will check if the user doc creation is valid, and if this creation is valid.
       allow create: if isSignedIn() && request.resource.data.teacherId == request.auth.uid;
 
       // No one can read, update, or delete teacher codes directly.

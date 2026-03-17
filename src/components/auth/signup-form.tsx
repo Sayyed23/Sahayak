@@ -19,6 +19,8 @@ import { auth, db } from "@/lib/firebase"
 import { Loader2 } from "lucide-react"
 import { useTranslation } from "@/hooks/use-translation"
 import { Separator } from "../ui/separator"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 type UserRole = "teacher" | "student"
 
@@ -39,7 +41,7 @@ const teacherSignUpSchema = baseSchema
 
 const studentSignUpSchema = baseSchema.extend({
   grade: z.string().min(1, { message: "Please select your grade." }),
-  teacherCode: z.string().length(6, { message: "Teacher code must be 6 characters." }),
+  teacherCode: z.string().length(6, { message: "Teacher code must be 6 characters." }).optional().or(z.literal("")),
 })
 
 const emailPasswordSchema = z.object({
@@ -155,45 +157,50 @@ export function SignUpForm({ role }: SignUpFormProps) {
 
       } catch (error) {
         console.error("Teacher signup transaction failed: ", error);
-        toast({
-            title: t("Sign up failed"),
-            description: t("Could not create your teacher account. Please try again."),
-            variant: "destructive"
-        })
+        
+        const permissionError = new FirestorePermissionError({
+          path: `/users/${user.uid} and /teacherCodes/<code>`,
+          operation: 'write',
+          requestResourceData: {
+            user: { name: values.name, email: user.email, role: 'teacher' },
+            teacherCode: 'generated-code'
+          },
+        });
+        errorEmitter.dispatchEvent(new CustomEvent('permission-error', { detail: permissionError }));
+        
         // Clean up the created auth user since the db transaction failed
         await user.delete();
       }
 
     } else { // Student role
       const studentValues = values as z.infer<typeof studentSignUpSchema>;
-      const teacherCode = studentValues.teacherCode.toUpperCase();
+      const teacherCode = studentValues.teacherCode?.toUpperCase();
+      let teacherId: string | null = null;
 
-      const q = query(
-        collection(db as Firestore, "users"),
-        where("teacherCode", "==", teacherCode),
-        where("role", "==", "teacher")
-      );
-      const querySnapshot = await getDocs(q);
+      if (teacherCode && teacherCode.length === 6) {
+        const q = query(collection(db as Firestore, "users"), where("teacherCode", "==", teacherCode), where("role", "==", "teacher"));
+        const querySnapshot = await getDocs(q);
 
-      if (querySnapshot.empty) {
-        toast({
-          title: t("Invalid Teacher Code"),
-          description: t("No teacher found with that code. Please check and try again."),
-          variant: "destructive",
-        });
-        await user.delete(); // Clean up auth user
-        return; // Stop execution
+        if (querySnapshot.empty) {
+          toast({
+            title: t("Invalid Teacher Code"),
+            description: t("No teacher was found for the code you entered. You can join a class later from your profile."),
+            variant: "destructive",
+          });
+        } else {
+          teacherId = querySnapshot.docs[0].id;
+        }
       }
-      const teacherId = querySnapshot.docs[0].id;
+      
       const studentData = {
-        uid: user.uid,
-        name: studentValues.name,
-        email: user.email,
-        role: "student",
-        school: studentValues.school,
-        language: studentValues.language,
-        grade: studentValues.grade,
-        teacherId: teacherId,
+          uid: user.uid,
+          name: studentValues.name,
+          email: user.email,
+          role: "student",
+          school: studentValues.school,
+          language: studentValues.language,
+          grade: studentValues.grade,
+          teacherId: teacherId, // This can be null if no code was entered or if code was invalid
       };
 
       const userDocRef = doc(db as Firestore, 'users', user.uid);
@@ -381,7 +388,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
                     name="teacherCode"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("Teacher Code")}</FormLabel>
+                        <FormLabel>{t("Teacher Code")} ({t("Optional")})</FormLabel>
                         <FormControl>
                           <Input
                             placeholder={t("Enter 6-character code")}
@@ -485,5 +492,3 @@ export function SignUpForm({ role }: SignUpFormProps) {
     </Card>
   )
 }
-
-      
