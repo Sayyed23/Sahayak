@@ -55,7 +55,11 @@ export const TranslationProvider = ({ children }: { children: ReactNode }) => {
     if (user && db) {
       const userRef = doc(db, 'users', user.uid);
       try {
-        await setDoc(userRef, { language: lang }, { merge: true });
+        // Only sync if the user already has a document (avoid partial doc creation during signup)
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          await setDoc(userRef, { language: lang }, { merge: true });
+        }
       } catch (error) {
         console.error("Failed to save language preference:", error);
       }

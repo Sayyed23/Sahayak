@@ -63,7 +63,7 @@ export default function LessonViewerPage() {
     const fetchLesson = async () => {
       setIsLoading(true)
       try {
-        const assignmentRef = doc(db, 'assignments', lessonId)
+        const assignmentRef = doc(db!, 'assignments', lessonId)
         const assignmentSnap = await getDoc(assignmentRef)
 
         if (assignmentSnap.exists()) {
@@ -76,7 +76,7 @@ export default function LessonViewerPage() {
             return;
           }
 
-          const contentRef = doc(db, 'content', assignmentData.contentId)
+          const contentRef = doc(db!, 'content', assignmentData.contentId)
           const contentSnap = await getDoc(contentRef)
 
           if (contentSnap.exists()) {
@@ -100,7 +100,7 @@ export default function LessonViewerPage() {
   useEffect(() => {
     if (!user || !lessonId || !db) return;
     setIsCheckingSubmission(true);
-    const q = query(collection(db, "submissions"), where("assignmentId", "==", lessonId), where("studentId", "==", user.uid));
+    const q = query(collection(db!, "submissions"), where("assignmentId", "==", lessonId), where("studentId", "==", user.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         setHasSubmitted(!snapshot.empty);
         setIsCheckingSubmission(false);
@@ -128,7 +128,7 @@ export default function LessonViewerPage() {
     try {
         const imageDataUri = await blobToBase64(submissionImage);
         
-        await addDoc(collection(db, "submissions"), {
+        await addDoc(collection(db!, "submissions"), {
             studentId: user.uid,
             studentName: user.displayName,
             assignmentId: lessonId,

@@ -9,8 +9,8 @@
  * - AnalyzeReadingAssessmentOutput - The return type for the function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 
 const AnalyzeReadingAssessmentInputSchema = z.object({
   passageText: z.string().describe('The original text of the reading passage.'),
@@ -48,9 +48,9 @@ export async function analyzeReadingAssessment(input: AnalyzeReadingAssessmentIn
 
 const prompt = ai.definePrompt({
   name: 'analyzeReadingAssessmentPrompt',
-  model: 'googleai/gemini-1.5-flash-latest',
-  input: {schema: AnalyzeReadingAssessmentInputSchema},
-  output: {schema: AnalyzeReadingAssessmentOutputSchema},
+  model: 'googleai/gemini-2.5-flash',
+  input: { schema: AnalyzeReadingAssessmentInputSchema },
+  output: { schema: AnalyzeReadingAssessmentOutputSchema },
   prompt: `You are a highly precise reading assessment analyst. Your task is to meticulously analyze a student's audio recording against a given passage of text.
 
   **Passage Text:**
@@ -116,7 +116,7 @@ const analyzeReadingAssessmentFlow = ai.defineFlow(
     outputSchema: AnalyzeReadingAssessmentOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    const { output } = await prompt(input);
     return output!;
   }
 );

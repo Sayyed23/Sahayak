@@ -30,7 +30,7 @@ export default function MyStudentsPage() {
     if (!user || !db) return
 
     setIsLoading(true)
-    const studentsQuery = query(collection(db, "users"), where("role", "==", "student"))
+    const studentsQuery = query(collection(db!, "users"), where("role", "==", "student"))
 
     const unsubscribe = onSnapshot(studentsQuery, (querySnapshot) => {
       const studentsData: Student[] = []

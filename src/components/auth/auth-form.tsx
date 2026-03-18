@@ -111,16 +111,18 @@ function AuthCard({ role, disabled }: AuthCardProps) {
   const signupSchema = role === "teacher" ? teacherSignUpSchema : studentSignUpSchema
   const currentSchema = mode === "login" ? loginSchema : signupSchema
 
-  const form = useForm<z.infer<typeof currentSchema>>({
+  const form = useForm<any>({
     resolver: zodResolver(currentSchema),
     defaultValues: {
       email: "",
       password: "",
-      name: "",
-      school: "",
-      language: undefined,
-      ...(role === "student" && { grade: "", teacherCode: "" }),
-    },
+      ...(mode === "signup" && {
+        name: "",
+        school: "",
+        language: undefined,
+        ...(role === "student" && { grade: "", teacherCode: "" }),
+      }),
+    } as any,
   })
 
   React.useEffect(() => {

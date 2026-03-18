@@ -55,13 +55,13 @@ export default function PlayGamePage() {
     const fetchGame = async () => {
       setIsLoading(true)
       try {
-        const assignmentRef = doc(db, 'assignments', assignmentId)
+        const assignmentRef = doc(db!, 'assignments', assignmentId)
         const assignmentSnap = await getDoc(assignmentRef)
 
         if (assignmentSnap.exists()) {
           const assignmentData = assignmentSnap.data() as Assignment
           setAssignment(assignmentData);
-          const contentRef = doc(db, 'content', assignmentData.contentId)
+          const contentRef = doc(db!, 'content', assignmentData.contentId)
           const contentSnap = await getDoc(contentRef)
 
           if (contentSnap.exists()) {
@@ -96,7 +96,7 @@ export default function PlayGamePage() {
     if (isFinished && user && game && db && assignment) {
       const saveSession = async () => {
         try {
-          await addDoc(collection(db, "game_sessions"), {
+          await addDoc(collection(db!, "game_sessions"), {
             studentId: user.uid,
             teacherId: assignment.teacherId,
             assignmentId: assignmentId,

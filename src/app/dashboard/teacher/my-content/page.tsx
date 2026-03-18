@@ -120,7 +120,7 @@ export default function MyContentPage() {
     setIsAssigning(true)
     try {
       const assignmentPromises = selectedStudents.map(studentId => {
-        return addDoc(collection(db, "assignments"), {
+        return addDoc(collection(db!, "assignments"), {
           teacherId: user.uid,
           studentId: studentId,
           contentId: contentToAssign.id,

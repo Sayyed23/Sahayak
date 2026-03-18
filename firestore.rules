@@ -14,11 +14,13 @@ service cloud.firestore {
     }
 
     function isTeacher() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null && userDoc.data.role == 'teacher';
     }
 
     function isStudent() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null && userDoc.data.role == 'student';
     }
 
     // --- Rules for 'users' collection ---
@@ -33,10 +35,11 @@ service cloud.firestore {
 
       // Update:
       // 1. A user can update their own document.
-      // 2. They CANNOT change their role or email after creation.
+      // 2. They CANNOT change their role or email after they are set.
+      // 3. This allows the SignUpForm to fill in missing fields even if TranslationProvider created a partial doc.
       allow update: if isSignedIn() && isOwner(userId) &&
-        request.resource.data.email == resource.data.email &&
-        request.resource.data.role == resource.data.role;
+        (!('email' in resource.data) || request.resource.data.email == resource.data.email) &&
+        (!('role' in resource.data) || request.resource.data.role == resource.data.role);
       
       // Delete: No one can delete user documents.
       allow delete: if false;

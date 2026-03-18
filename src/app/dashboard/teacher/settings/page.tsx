@@ -1,5 +1,6 @@
+"use client"
 
-'use client'
+import React from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -34,7 +35,7 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
-  const form = useForm<z.infer<typeof profileSchema>>({
+  const form = useForm<any>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: "",
@@ -46,7 +47,7 @@ export default function SettingsPage() {
     if (user && db) {
       const fetchProfile = async () => {
         setIsLoading(true)
-        const teacherRef = doc(db, "users", user.uid)
+        const teacherRef = doc(db!, "users", user.uid)
         const docSnap = await getDoc(teacherRef)
 
         if (docSnap.exists()) {
@@ -66,7 +67,7 @@ export default function SettingsPage() {
     if (!user || !db) return
     setIsSaving(true)
     try {
-      const userRef = doc(db, "users", user.uid)
+      const userRef = doc(db!, "users", user.uid)
       await updateDoc(userRef, {
         name: values.name,
         school: values.school,

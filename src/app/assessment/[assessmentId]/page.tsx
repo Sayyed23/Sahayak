@@ -55,7 +55,7 @@ export default function TakeAssessmentPage() {
 
     const fetchPassage = async () => {
         setIsLoadingPassage(true);
-        const docRef = doc(db, "assessments", assessmentId);
+        const docRef = doc(db!, "assessments", assessmentId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -146,7 +146,7 @@ export default function TakeAssessmentPage() {
             audioDataUri: audioDataUri,
         });
         
-        await addDoc(collection(db, "submissions"), {
+        await addDoc(collection(db!, "submissions"), {
             studentId: user.uid,
             studentName: user.displayName,
             assessmentId: passage.id,

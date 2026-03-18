@@ -46,7 +46,7 @@ export default function ProfilePage() {
     if (user && db) {
       const fetchProfile = async () => {
         setIsLoading(true)
-        const userRef = doc(db, "users", user.uid)
+        const userRef = doc(db!, "users", user.uid)
         const userSnap = await getDoc(userRef)
 
         if (userSnap.exists()) {
@@ -73,7 +73,7 @@ export default function ProfilePage() {
     if (!user || !db) return
     setIsSaving(true)
     try {
-      const userRef = doc(db, "users", user.uid)
+      const userRef = doc(db!, "users", user.uid)
       await updateDoc(userRef, {
         name: values.name,
         school: values.school,

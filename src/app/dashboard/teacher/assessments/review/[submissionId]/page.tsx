@@ -103,7 +103,7 @@ export default function ReviewAssessmentPage() {
 
     const fetchSubmission = async () => {
       setIsLoading(true)
-      const submissionRef = doc(db, "submissions", submissionId)
+      const submissionRef = doc(db!, "submissions", submissionId)
       const submissionSnap = await getDoc(submissionRef)
 
       if (submissionSnap.exists()) {
@@ -186,7 +186,7 @@ export default function ReviewAssessmentPage() {
         return;
     }
     setIsSubmittingFeedback(true);
-    const submissionRef = doc(db, "submissions", submissionId);
+    const submissionRef = doc(db!, "submissions", submissionId);
     try {
         await updateDoc(submissionRef, {
             teacherFeedback: feedback,

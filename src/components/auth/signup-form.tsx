@@ -71,10 +71,10 @@ export function SignUpForm({ role }: SignUpFormProps) {
 
   const signupSchema = role === "teacher" ? teacherSignUpSchema : studentSignUpSchema;
 
-  const form = useForm<z.infer<typeof signupSchema>>({
+  const form = useForm<any>({
     resolver: zodResolver(signupSchema),
     defaultValues:
-      role === "teacher"
+      (role === "teacher"
         ? {
             name: "",
             email: "",
@@ -89,7 +89,7 @@ export function SignUpForm({ role }: SignUpFormProps) {
             school: "",
             language: "",
             grade: "",
-          },
+          }) as any,
   })
 
   // Ensure unregistered users in auth get signed out

@@ -8,8 +8,8 @@
  * - DesignVisualAidOutput - The return type for the designVisualAid function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 
 const DesignVisualAidInputSchema = z.object({
   description: z.string().describe('The description of the visual aid.'),
@@ -28,8 +28,8 @@ export async function designVisualAid(input: DesignVisualAidInput): Promise<Desi
 
 const prompt = ai.definePrompt({
   name: 'designVisualAidPrompt',
-  input: {schema: DesignVisualAidInputSchema},
-  output: {schema: DesignVisualAidOutputSchema},
+  input: { schema: DesignVisualAidInputSchema },
+  output: { schema: DesignVisualAidOutputSchema },
   prompt: `You are an expert visual aid designer for teachers.
 
 You will use the description to generate a visual aid for the teacher, in the specified style.
@@ -67,13 +67,13 @@ const designVisualAidFlow = ai.defineFlow(
     outputSchema: DesignVisualAidOutputSchema,
   },
   async input => {
-    const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+    const { media } = await ai.generate({
+      model: 'googleai/gemini-2.5-flash-preview-image-generation',
       prompt: `${input.description}, in a ${input.style} style`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
     });
-    return {imageUrl: media!.url};
+    return { imageUrl: media!.url };
   }
 );
